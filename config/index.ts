@@ -1,7 +1,7 @@
 import type { Config } from "./types";
 
 export const config = {
-	appName: "supastarter for Next.js Demo",
+	appName: "Filo",
 	// Internationalization
 	i18n: {
 		// Whether internationalization should be enabled (if disabled, you still need to define the locale you want to use below and set it as the default locale)
@@ -131,6 +131,7 @@ export const config = {
 		plans: {
 			free: {
 				isFree: true,
+				hidden: true,
 			},
 			basico: {
 				prices: [
@@ -150,27 +151,7 @@ export const config = {
 						type: "recurring",
 						productId: process.env.NEXT_PUBLIC_PRICE_ID_PRO_MONTHLY as string,
 						interval: "month",
-						amount: 39,
-						currency: "EUR",
-					},
-				],
-			},
-			lifetime: {
-				prices: [
-					{
-						type: "one-time",
-						productId: process.env.NEXT_PUBLIC_PRICE_ID_LIFETIME as string,
-						amount: 19,
-						currency: "EUR",
-					},
-				],
-			},
-			promo: {
-				prices: [
-					{
-						type: "one-time",
-						productId: process.env.NEXT_PUBLIC_PRICE_ID_PROMO_LANZAMIENTO as string,
-						amount: 1,
+						amount: 40,
 						currency: "EUR",
 					},
 				],

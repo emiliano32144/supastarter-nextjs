@@ -6,11 +6,9 @@ import { UserMenu } from "@saas/shared/components/UserMenu";
 import { Logo } from "@shared/components/Logo";
 import { cn } from "@ui/lib";
 import {
-	BotMessageSquareIcon,
 	Building2Icon,
 	CalendarDaysIcon,
 	ChevronRightIcon,
-	FileTextIcon,
 	HomeIcon,
 	ScissorsIcon,
 	SettingsIcon,
@@ -42,29 +40,9 @@ export function NavBar() {
 			isActive: pathname === basePath,
 		},
 		{
-			label: t("app.menu.aiChatbot"),
-			href: activeOrganization
-				? `/app/${activeOrganization.slug}/chatbot`
-				: "/app/chatbot",
-			icon: BotMessageSquareIcon,
-			isActive: pathname.includes("/chatbot"),
-		},
-		{
-			label: t("app.menu.contentflow"),
-			href: `${basePath}/contentflow`,
-			icon: CalendarDaysIcon,
-			isActive: pathname.includes("/contentflow"),
-		},
-		{
-			label: t("app.menu.invoiceflow"),
-			href: `${basePath}/invoiceflow`,
-			icon: FileTextIcon,
-			isActive: pathname.includes("/invoiceflow"),
-		},
-		{
 			label: "ReservasPro",
 			href: `${basePath}/reservas`,
-			icon: FileTextIcon,
+			icon: CalendarDaysIcon,
 			isActive: pathname.includes("/reservas"),
 		},
 		{
@@ -72,12 +50,6 @@ export function NavBar() {
 			href: `${basePath}/galeria`,
 			icon: ScissorsIcon,
 			isActive: pathname.includes("/galeria"),
-		},
-		{
-			label: "TaskFlow",
-			href: `${basePath}/taskflow`,
-			icon: FileTextIcon,
-			isActive: pathname.includes("/taskflow"),
 		},
 		{
 			label: "Mis Peluquerías",

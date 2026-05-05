@@ -1,17 +1,13 @@
 "use client";
 
-import { MobileIcon } from "@radix-ui/react-icons";
 import { cn } from "@ui/lib";
 import {
-	CloudIcon,
-	ComputerIcon,
-	PaperclipIcon,
+	CalendarCheckIcon,
+	ImageIcon,
+	ScissorsIcon,
 	StarIcon,
-	WandIcon,
 } from "lucide-react";
-import Image, { type StaticImageData } from "next/image";
 import { type JSXElementConstructor, type ReactNode, useState } from "react";
-import heroImage from "../../../../public/images/hero.svg";
 
 export const featureTabs: Array<{
 	id: string;
@@ -19,110 +15,121 @@ export const featureTabs: Array<{
 	icon: JSXElementConstructor<any>;
 	subtitle?: string;
 	description?: ReactNode;
-	image?: StaticImageData;
-	imageBorder?: boolean;
-	stack?: {
-		title: string;
-		href: string;
-		icon: JSXElementConstructor<any>;
-	}[];
 	highlights?: {
 		title: string;
 		description: string;
 		icon: JSXElementConstructor<any>;
-		demoLink?: string;
-		docsLink?: string;
 	}[];
 }> = [
 	{
-		id: "feature1",
-		title: "Feature 1",
+		id: "reservas",
+		title: "Reservas en 30 segundos",
+		icon: CalendarCheckIcon,
+		subtitle: "Tus clientes reservan desde el móvil sin llamadas.",
+		description:
+			"Calendario inteligente con gestión de citas en tiempo real. Notificaciones automáticas y recordatorios por WhatsApp para reducir ausencias.",
+		highlights: [
+			{
+				title: "Calendario en tiempo real",
+				description:
+					"Gestiona todos tus peluqueros en un solo panel. Sin solapamientos, sin confusiones.",
+				icon: CalendarCheckIcon,
+			},
+			{
+				title: "Recordatorios automáticos",
+				description:
+					"Reduce las ausencias con recordatorios automáticos por WhatsApp y email antes de cada cita.",
+				icon: CalendarCheckIcon,
+			},
+			{
+				title: "Reserva 24/7",
+				description:
+					"Tus clientes pueden reservar en cualquier momento, aunque tu barbería esté cerrada.",
+				icon: CalendarCheckIcon,
+			},
+		],
+	},
+	{
+		id: "fidelizacion",
+		title: "Sistema de fidelización XP",
 		icon: StarIcon,
-		subtitle: "Do more with our amazing SaaS.",
+		subtitle: "Convierte visitas en clientes fieles con puntos XP.",
 		description:
-			"This is a brilliant feature. And below you can see some reasons why. This is basically just a dummy text.",
-		stack: [],
-		image: heroImage,
-		imageBorder: false,
+			"Cada reserva suma puntos XP. Tus clientes suben de nivel y desbloquean recompensas. La gamificación que hace que siempre vuelvan.",
 		highlights: [
 			{
-				title: "Benefit 1",
+				title: "Niveles y recompensas",
 				description:
-					"This is an awesome benefit. And below you can see some reasons why. This is basically just a dummy text.",
-				icon: WandIcon,
+					"Bronce, Plata, Oro y Platino. Define descuentos y servicios exclusivos para cada nivel.",
+				icon: StarIcon,
 			},
 			{
-				title: "Benefit 2",
+				title: "Historial de visitas",
 				description:
-					"This is an awesome benefit. And below you can see some reasons why. This is basically just a dummy text.",
-				icon: ComputerIcon,
+					"Cada cliente tiene su perfil con historial completo, preferencias y puntos acumulados.",
+				icon: StarIcon,
 			},
 			{
-				title: "Benefit 3",
+				title: "Notificaciones de logros",
 				description:
-					"This is an awesome benefit. And below you can see some reasons why. This is basically just a dummy text.",
-				icon: MobileIcon,
+					"Tus clientes reciben notificaciones cuando suben de nivel o desbloquean una recompensa.",
+				icon: StarIcon,
 			},
 		],
 	},
 	{
-		id: "feature2",
-		title: "Feature 2",
-		icon: CloudIcon,
-		subtitle: "Your SaaS can also do this.",
-		description: "Another dummy text for another feature.",
-		stack: [],
-		image: heroImage,
-		imageBorder: false,
+		id: "galeria",
+		title: "Galería de estilos",
+		icon: ImageIcon,
+		subtitle: "Muestra tu trabajo y atrae nuevos clientes.",
+		description:
+			"Sube fotos de tus mejores cortes y estilos. Los clientes pueden elegir su corte favorito directamente al reservar.",
 		highlights: [
 			{
-				title: "Benefit 1",
+				title: "Portfolio visual",
 				description:
-					"This is an awesome benefit. And below you can see some reasons why. This is basically just a dummy text.",
-				icon: WandIcon,
+					"Organiza tus trabajos por categorías: degradados, barbas, cortes clásicos, modernos...",
+				icon: ImageIcon,
 			},
 			{
-				title: "Benefit 2",
+				title: "Reserva desde la galería",
 				description:
-					"This is an awesome benefit. And below you can see some reasons why. This is basically just a dummy text.",
-				icon: ComputerIcon,
+					"El cliente ve un estilo que le gusta y reserva directamente. Menos dudas, más conversiones.",
+				icon: ImageIcon,
 			},
 			{
-				title: "Benefit 3",
+				title: "SEO local incluido",
 				description:
-					"This is an awesome benefit. And below you can see some reasons why. This is basically just a dummy text.",
-				icon: MobileIcon,
+					"Tu galería aparece en Google para búsquedas locales de barberías en tu zona.",
+				icon: ImageIcon,
 			},
 		],
 	},
 	{
-		id: "feature3",
-		title: "Feature 3",
-		icon: PaperclipIcon,
-		subtitle: "We even got a third one.",
+		id: "personalizacion",
+		title: "Personalización completa",
+		icon: ScissorsIcon,
+		subtitle: "Tu barbería, tu marca, tus reglas.",
 		description:
-			"Of course your SaaS will have more features than this, but this is just a dummy text.",
-		stack: [],
-		image: heroImage,
-		imageBorder: false,
+			"Configura horarios, servicios, precios y peluqueros a tu medida. Página de reservas con tu logo y colores corporativos.",
 		highlights: [
 			{
-				title: "Benefit 1",
+				title: "Múltiples servicios",
 				description:
-					"This is an awesome benefit. And below you can see some reasons why. This is basically just a dummy text.",
-				icon: WandIcon,
+					"Corte, barba, tinte, tratamientos... Define todos tus servicios con duración y precio.",
+				icon: ScissorsIcon,
 			},
 			{
-				title: "Benefit 2",
+				title: "Gestión de peluqueros",
 				description:
-					"This is an awesome benefit. And below you can see some reasons why. This is basically just a dummy text.",
-				icon: ComputerIcon,
+					"Cada peluquero tiene su agenda, sus servicios y sus propios horarios.",
+				icon: ScissorsIcon,
 			},
 			{
-				title: "Benefit 3",
+				title: "Tu página de reservas",
 				description:
-					"This is an awesome benefit. And below you can see some reasons why. This is basically just a dummy text.",
-				icon: MobileIcon,
+					"Una URL personalizada para tu barbería. Compártela en Instagram, WhatsApp o tu web.",
+				icon: ScissorsIcon,
 			},
 		],
 	},
@@ -135,12 +142,11 @@ export function Features() {
 			<div className="container max-w-5xl">
 				<div className="mx-auto mb-6 lg:mb-0 lg:max-w-5xl lg:text-center">
 					<h2 className="font-bold text-4xl lg:text-5xl">
-						Features your clients will love
+						Todo lo que tu barbería necesita
 					</h2>
 					<p className="mt-6 text-balance text-lg opacity-50">
-						In this section you can showcase all the features of
-						your SaaS provides and how they can benefit your
-						clients.
+						Filo reúne en una sola app todo lo que necesitas para
+						gestionar tu barbería y hacer crecer tu negocio.
 					</p>
 				</div>
 
@@ -152,7 +158,7 @@ export function Features() {
 								key={tab.id}
 								onClick={() => setSelectedTab(tab.id)}
 								className={cn(
-									"flex w-24 flex-col items-center gap-2 rounded-lg px-4 py-2 md:w-32",
+									"flex w-32 flex-col items-center gap-2 rounded-lg px-4 py-2",
 									selectedTab === tab.id
 										? "bg-primary/5 font-bold text-primary dark:bg-primary/10"
 										: "font-medium text-foreground/80",
@@ -166,7 +172,7 @@ export function Features() {
 											: "text-foreground opacity-30",
 									)}
 								/>
-								<span className="text-xs md:text-sm">
+								<span className="text-center text-xs md:text-sm">
 									{tab.title}
 								</span>
 							</button>
@@ -178,7 +184,6 @@ export function Features() {
 			<div>
 				<div className="container max-w-5xl">
 					{featureTabs.map((tab) => {
-						const filteredStack = tab.stack || [];
 						const filteredHighlights = tab.highlights || [];
 						return (
 							<div
@@ -190,7 +195,7 @@ export function Features() {
 										: "block lg:hidden",
 								)}
 							>
-								<div className="grid grid-cols-1 items-center gap-8 md:grid-cols-2 lg:gap-12">
+								<div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:gap-12">
 									<div>
 										<h3 className="font-normal text-2xl text-foreground/60 leading-normal md:text-3xl">
 											<strong className="text-secondary">
@@ -204,42 +209,9 @@ export function Features() {
 												{tab.description}
 											</p>
 										)}
-
-										{filteredStack?.length > 0 && (
-											<div className="mt-4 flex flex-wrap gap-6">
-												{filteredStack.map(
-													(tool, k) => (
-														<a
-															href={tool.href}
-															target="_blank"
-															key={`stack-tool-${k}`}
-															className="flex items-center gap-2"
-															rel="noreferrer"
-														>
-															<tool.icon className="size-6" />
-															<strong className="block text-sm">
-																{tool.title}
-															</strong>
-														</a>
-													),
-												)}
-											</div>
-										)}
 									</div>
-									<div>
-										{tab.image && (
-											<Image
-												src={tab.image}
-												alt={tab.title}
-												className={cn(
-													" h-auto w-full max-w-xl",
-													{
-														"rounded-2xl border-4 border-secondary/10":
-															tab.imageBorder,
-													},
-												)}
-											/>
-										)}
+									<div className="flex items-center justify-center">
+										<tab.icon className="size-32 text-primary opacity-10" />
 									</div>
 								</div>
 
@@ -261,9 +233,7 @@ export function Features() {
 															{highlight.title}
 														</strong>
 														<p className="mt-1 text-sm opacity-50">
-															{
-																highlight.description
-															}
+															{highlight.description}
 														</p>
 													</div>
 												</div>

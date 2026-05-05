@@ -34,7 +34,15 @@ export const createCheckoutLink = protectedProcedure
 			input: { productId, redirectUrl, type, organizationId },
 			context: { user },
 		}) => {
+			logger.log("[Checkout] Iniciando creación de checkout link", {
+				productId,
+				type,
+				userId: user.id,
+				organizationId,
+			});
+
 			if (!productId || productId === "undefined" || productId === "null") {
+				logger.error("[Checkout] Invalid productId:", productId);
 				throw new ORPCError("BAD_REQUEST", { message: "Invalid productId" });
 			}
 
@@ -48,23 +56,40 @@ export const createCheckoutLink = protectedProcedure
 						},
 			);
 
+			logger.log("[Checkout] Customer ID obtenido:", customerId);
+
 			const plans = config.payments.plans as Config["payments"]["plans"];
+
+			logger.log("[Checkout] Buscando plan con productId:", productId);
+			logger.log("[Checkout] Planes disponibles:", Object.keys(plans));
 
 			const plan = Object.entries(plans).find(([_planId, plan]) =>
 				plan.prices?.find((price) => price.productId === productId),
 			);
 
 			if (!plan) {
+				logger.error("[Checkout] Plan no encontrado para productId:", productId);
+				logger.error("[Checkout] Planes y sus productIds:", 
+					Object.entries(plans).map(([planId, plan]) => ({
+						planId,
+						productIds: plan.prices?.map(p => p.productId),
+					}))
+				);
 				throw new ORPCError("NOT_FOUND", { message: "Plan not found for productId" });
 			}
+
+			logger.log("[Checkout] Plan encontrado:", plan[0]);
 
 			const price = plan?.[1].prices?.find(
 				(price) => price.productId === productId,
 			);
 
 			if (!price) {
+				logger.error("[Checkout] Price no encontrado en plan:", plan[0]);
 				throw new ORPCError("NOT_FOUND", { message: "Price not found" });
 			}
+
+			logger.log("[Checkout] Price encontrado:", price);
 			const trialPeriodDays =
 				price && "trialPeriodDays" in price
 					? price.trialPeriodDays
@@ -84,6 +109,18 @@ export const createCheckoutLink = protectedProcedure
 					: undefined;
 
 			try {
+				logger.log("[Checkout] Llamando a createCheckoutLinkFn con:", {
+					type,
+					productId,
+					email: user.email,
+					name: user.name ?? "",
+					redirectUrl,
+					userId: user.id,
+					trialPeriodDays,
+					seats,
+					customerId: customerId ?? undefined,
+				});
+
 				const checkoutLink = await createCheckoutLinkFn({
 					type,
 					productId,
@@ -99,12 +136,19 @@ export const createCheckoutLink = protectedProcedure
 				});
 
 				if (!checkoutLink) {
+					logger.error("[Checkout] createCheckoutLinkFn retornó null/undefined");
 					throw new ORPCError("INTERNAL_SERVER_ERROR");
 				}
 
+				logger.log("[Checkout] Checkout link creado exitosamente:", checkoutLink);
 				return { checkoutLink };
 			} catch (e) {
-				logger.error(e);
+				logger.error("[Checkout] Error al crear checkout link:", e);
+				logger.error("[Checkout] Error details:", {
+					message: e instanceof Error ? e.message : String(e),
+					stack: e instanceof Error ? e.stack : undefined,
+					error: e,
+				});
 				throw new ORPCError("INTERNAL_SERVER_ERROR");
 			}
 		},

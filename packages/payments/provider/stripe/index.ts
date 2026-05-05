@@ -24,21 +24,43 @@ export function getStripeClient() {
 
 	const stripeSecretKey = process.env.STRIPE_SECRET_KEY as string;
 
+	logger.log("[Stripe] Inicializando cliente de Stripe");
+	logger.log("[Stripe] STRIPE_SECRET_KEY presente:", !!stripeSecretKey);
+	logger.log("[Stripe] STRIPE_SECRET_KEY prefijo:", stripeSecretKey?.substring(0, 12) || "NO DEFINIDO");
+
 	if (!stripeSecretKey) {
+		logger.error("[Stripe] STRIPE_SECRET_KEY no está definida en process.env");
+		logger.error("[Stripe] Variables de entorno disponibles:", Object.keys(process.env).filter(k => k.includes("STRIPE")));
 		throw new Error("Missing env variable STRIPE_SECRET_KEY");
 	}
 
-	stripeClient = new Stripe(stripeSecretKey);
+	try {
+		stripeClient = new Stripe(stripeSecretKey);
+		logger.log("[Stripe] Cliente de Stripe inicializado correctamente");
+	} catch (error) {
+		logger.error("[Stripe] Error al inicializar cliente:", error);
+		throw error;
+	}
 
 	return stripeClient;
 }
 
 export const createCheckoutLink: CreateCheckoutLink = async (options) => {
+	logger.log("[Stripe] createCheckoutLink llamado con:", {
+		productId: options.productId,
+		type: options.type,
+		email: options.email,
+		userId: options.userId,
+		organizationId: options.organizationId,
+	});
+
 	if (!options.productId || options.productId === "undefined" || options.productId === "null") {
+		logger.error("[Stripe] Invalid productId:", options.productId);
 		throw new Error("Invalid productId");
 	}
 
 	const stripeClient = getStripeClient();
+	logger.log("[Stripe] Cliente de Stripe inicializado");
 	const {
 		type,
 		productId,
@@ -56,33 +78,57 @@ export const createCheckoutLink: CreateCheckoutLink = async (options) => {
 		user_id: userId || null,
 	};
 
-	const response = await stripeClient.checkout.sessions.create({
-		mode: type === "subscription" ? "subscription" : "payment",
-		success_url: redirectUrl ?? "",
-		line_items: [
-			{
-				quantity: seats ?? 1,
-				price: productId,
-			},
-		],
-		...(customerId ? { customer: customerId } : { customer_email: email }),
-		...(type === "one-time"
-			? {
-					payment_intent_data: {
-						metadata,
-					},
-					customer_creation: "always",
-				}
-			: {
-					subscription_data: {
-						metadata,
-						trial_period_days: trialPeriodDays,
-					},
-				}),
-		metadata,
-	});
+	try {
+		logger.log("[Stripe] Creando checkout session con:", {
+			mode: type === "subscription" ? "subscription" : "payment",
+			price: productId,
+			email,
+			customerId,
+			redirectUrl,
+			trialPeriodDays,
+		});
 
-	return response.url;
+		const response = await stripeClient.checkout.sessions.create({
+			mode: type === "subscription" ? "subscription" : "payment",
+			success_url: redirectUrl ?? "",
+			line_items: [
+				{
+					quantity: seats ?? 1,
+					price: productId,
+				},
+			],
+			...(customerId ? { customer: customerId } : { customer_email: email }),
+			...(type === "one-time"
+				? {
+						payment_intent_data: {
+							metadata,
+						},
+						customer_creation: "always",
+					}
+				: {
+						subscription_data: {
+							metadata,
+							trial_period_days: trialPeriodDays,
+						},
+					}),
+			metadata,
+		});
+
+		logger.log("[Stripe] Checkout session creada exitosamente:", {
+			sessionId: response.id,
+			url: response.url,
+		});
+
+		return response.url;
+	} catch (error) {
+		logger.error("[Stripe] Error al crear checkout session:", error);
+		logger.error("[Stripe] Error details:", {
+			message: error instanceof Error ? error.message : String(error),
+			stack: error instanceof Error ? error.stack : undefined,
+			type: error instanceof Error ? error.constructor.name : typeof error,
+		});
+		throw error;
+	}
 };
 
 export const createCustomerPortalLink: CreateCustomerPortalLink = async ({

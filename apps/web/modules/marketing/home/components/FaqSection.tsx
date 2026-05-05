@@ -1,31 +1,28 @@
 import { cn } from "@ui/lib";
-import { useTranslations } from "next-intl";
 
 export function FaqSection({ className }: { className?: string }) {
-	const t = useTranslations();
-
 	const items = [
 		{
-			question: "What is the refund policy?",
-			answer: "We offer a 30-day money-back guarantee if you're not happy with our product.",
+			question: "¿Qué incluye el plan Básico?",
+			answer:
+				"1 local, hasta 3 peluqueros, reservas ilimitadas, sistema de fidelización XP, galería de estilos y soporte por email.",
 		},
 		{
-			question: "How do I cancel my subscription?",
-			answer: "You can cancel your subscription by visiting the billing page.",
+			question: "¿Puedo cambiar de plan?",
+			answer:
+				"Sí, puedes subir o bajar de plan en cualquier momento desde tu panel de control. El cambio se aplica en el siguiente ciclo de facturación.",
 		},
 		{
-			question: "Can I change my plan?",
-			answer: "Yes, you can change your plan at any time by visiting the billing page.",
+			question: "¿Hay permanencia?",
+			answer:
+				"No, puedes cancelar cuando quieras. Sin compromisos ni letra pequeña.",
 		},
 		{
-			question: "Do you offer a free trial?",
-			answer: "Yes, we offer a 14-day free trial.",
+			question: "¿Mis clientes tienen que pagar algo?",
+			answer:
+				"No, el sistema es totalmente gratuito para tus clientes. Solo tú pagas la suscripción mensual.",
 		},
 	];
-
-	if (!items) {
-		return null;
-	}
 
 	return (
 		<section
@@ -35,9 +32,11 @@ export function FaqSection({ className }: { className?: string }) {
 			<div className="container max-w-5xl">
 				<div className="mb-12 lg:text-center">
 					<h1 className="mb-2 font-bold text-4xl lg:text-5xl">
-						{t("faq.title")}
+						Preguntas frecuentes
 					</h1>
-					<p className="text-lg opacity-50">{t("faq.description")}</p>
+					<p className="text-lg opacity-50">
+						Todo lo que necesitas saber antes de empezar.
+					</p>
 				</div>
 				<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 					{items.map((item, i) => (

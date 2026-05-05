@@ -6,10 +6,12 @@ import { config } from "@repo/config";
 
 export const metadata: Metadata = {
 	title: {
-		absolute: config.appName,
-		default: config.appName,
+		absolute: `${config.appName} - Gestor de reservas para barberías`,
+		default: `${config.appName} - Gestor de reservas para barberías`,
 		template: `%s | ${config.appName}`,
 	},
+	description:
+		"Filo es el gestor de reservas online para barberías. Reservas en 30 segundos, fidelización con puntos XP y gestión completa. Sin comisiones. Desde 19€/mes.",
 };
 
 export default function RootLayout({ children }: PropsWithChildren) {

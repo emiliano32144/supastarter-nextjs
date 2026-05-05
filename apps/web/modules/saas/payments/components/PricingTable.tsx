@@ -82,8 +82,10 @@ export function PricingTable({
 	};
 
 	const filteredPlans = Object.entries(plans).filter(
-		([planId]) =>
-			planId !== activePlanId && (!activePlanId || planId !== "free"),
+		([planId, plan]) =>
+			!plan.hidden &&
+			planId !== activePlanId &&
+			(!activePlanId || planId !== "free"),
 	);
 
 	const hasSubscriptions = filteredPlans.some(([_, plan]) =>

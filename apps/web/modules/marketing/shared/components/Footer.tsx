@@ -9,11 +9,7 @@ export function Footer() {
 				<div>
 					<Logo className="opacity-70 grayscale" />
 					<p className="mt-3 text-sm opacity-70">
-						© {new Date().getFullYear()} {config.appName}.{" "}
-						<a href="https://supastarter.dev">
-							Built with supastarter
-						</a>
-						.
+						© {new Date().getFullYear()} {config.appName} — Gestión inteligente para barberías.
 					</p>
 				</div>
 
@@ -23,21 +19,21 @@ export function Footer() {
 					</LocaleLink>
 
 					<a href="#features" className="block">
-						Features
+						Funcionalidades
 					</a>
 
 					<a href="/#pricing" className="block">
-						Pricing
+						Precios
 					</a>
 				</div>
 
 				<div className="flex flex-col gap-2">
 					<LocaleLink href="/legal/privacy-policy" className="block">
-						Privacy policy
+						Política de privacidad
 					</LocaleLink>
 
 					<LocaleLink href="/legal/terms" className="block">
-						Terms and conditions
+						Términos y condiciones
 					</LocaleLink>
 				</div>
 			</div>
