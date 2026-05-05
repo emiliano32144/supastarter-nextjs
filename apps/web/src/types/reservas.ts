@@ -135,10 +135,13 @@ export interface WorkingHours {
   organization_id: string;
   professional_id: string | null;
   day_of_week: number;
-  start_time: string;
-  end_time: string;
   is_working: boolean;
-  created_at: Date;
+  open_time: string | null;
+  close_time: string | null;
+  break_start: string | null;
+  break_end: string | null;
+  created_at: Date | string;
+  updated_at?: Date | string | null;
 }
 
 export const WorkingHoursSchema = z.object({
@@ -146,15 +149,19 @@ export const WorkingHoursSchema = z.object({
   organization_id: z.string(),
   professional_id: z.string().nullable(),
   day_of_week: z.number(),
-  start_time: z.string(),
-  end_time: z.string(),
   is_working: z.boolean(),
+  open_time: z.string().nullable(),
+  close_time: z.string().nullable(),
+  break_start: z.string().nullable(),
+  break_end: z.string().nullable(),
   created_at: z.coerce.date(),
+  updated_at: z.coerce.date().nullable().optional(),
 });
 
 export const NewWorkingHoursSchema = WorkingHoursSchema.omit({
-  id: true,
-  created_at: true,
+	id: true,
+	created_at: true,
+	updated_at: true,
 });
 
 // ═══════════════════════════════════════════════════════════════

@@ -1,9 +1,15 @@
 "use client";
 
+import {
+	useCreateWorking_hour,
+	useUpdateWorking_hour,
+	useWorkingHours,
+} from "@/hooks/use-reservas";
+import type { WorkingHours } from "@/types/reservas";
 import { useActiveOrganization } from "@saas/organizations/hooks/use-active-organization";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type BusinessConfig = {
   id?: string;
@@ -61,15 +67,60 @@ const colorPresets = [
   { name: "Negro", primary: "#1F2937", secondary: "#111827" },
 ];
 
-const dayNames = [
-  { value: "0", label: "Dom" },
-  { value: "1", label: "Lun" },
-  { value: "2", label: "Mar" },
-  { value: "3", label: "Mié" },
-  { value: "4", label: "Jue" },
-  { value: "5", label: "Vie" },
-  { value: "6", label: "Sáb" },
+const WEEKDAY_ROWS: { label: string; day_of_week: number }[] = [
+	{ label: "Lunes", day_of_week: 1 },
+	{ label: "Martes", day_of_week: 2 },
+	{ label: "Miércoles", day_of_week: 3 },
+	{ label: "Jueves", day_of_week: 4 },
+	{ label: "Viernes", day_of_week: 5 },
+	{ label: "Sábado", day_of_week: 6 },
+	{ label: "Domingo", day_of_week: 0 },
 ];
+
+interface DayWorkingRow {
+	label: string;
+	day_of_week: number;
+	dbId: string | null;
+	is_working: boolean;
+	open_time: string;
+	close_time: string;
+	break_start: string;
+	break_end: string;
+}
+
+function formatSlotTime(time: string | null | undefined): string {
+	if (time === null || time === undefined || String(time).trim() === "") return "";
+	const s = String(time);
+	return s.length >= 5 ? s.slice(0, 5) : s;
+}
+
+function buildDayRows(serverOrgHours: WorkingHours[]): DayWorkingRow[] {
+	return WEEKDAY_ROWS.map(({ label, day_of_week }) => {
+		const found = serverOrgHours.find((row) => row.day_of_week === day_of_week);
+		if (!found) {
+			return {
+				label,
+				day_of_week,
+				dbId: null,
+				is_working: true,
+				open_time: "09:00",
+				close_time: "20:00",
+				break_start: "",
+				break_end: "",
+			};
+		}
+		return {
+			label,
+			day_of_week,
+			dbId: found.id,
+			is_working: found.is_working,
+			open_time: formatSlotTime(found.open_time) || "09:00",
+			close_time: formatSlotTime(found.close_time) || "20:00",
+			break_start: formatSlotTime(found.break_start),
+			break_end: formatSlotTime(found.break_end),
+		};
+	});
+}
 
 export default function ConfiguracionPage() {
   const params = useParams();
@@ -80,6 +131,42 @@ export default function ConfiguracionPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
+  const [dayWorkingRows, setDayWorkingRows] = useState<DayWorkingRow[]>(() =>
+    buildDayRows([]),
+  );
+  const [hoursMessage, setHoursMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [savingHours, setSavingHours] = useState(false);
+  const hoursInitRef = useRef(false);
+
+  const {
+    data: workingHoursList,
+    isSuccess: workingHoursReady,
+    isLoading: workingHoursLoading,
+    refetch: refetchWorkingHours,
+  } = useWorkingHours({
+    limit: 100,
+    page: 1,
+    enabled: !!activeOrganization?.id,
+  });
+
+  const createWorkingHour = useCreateWorking_hour();
+  const updateWorkingHour = useUpdateWorking_hour();
+
+  useEffect(() => {
+    hoursInitRef.current = false;
+  }, [activeOrganization?.id]);
+
+  useEffect(() => {
+    if (!workingHoursReady || hoursInitRef.current) return;
+    const orgHours = (workingHoursList?.data ?? []).filter(
+      (row: WorkingHours) => row.professional_id == null,
+    );
+    hoursInitRef.current = true;
+    setDayWorkingRows(buildDayRows(orgHours));
+  }, [workingHoursReady, workingHoursList]);
 
   // Cargar configuración existente
   useEffect(() => {
@@ -153,12 +240,67 @@ export default function ConfiguracionPage() {
     setConfig({ ...config, slug });
   };
 
-  const toggleDay = (day: string) => {
-    const days = config.working_days.includes(day)
-      ? config.working_days.filter((d) => d !== day)
-      : [...config.working_days, day];
-    setConfig({ ...config, working_days: days });
-  };
+  function patchDayRow(dayOfWeek: number, patch: Partial<DayWorkingRow>) {
+    setDayWorkingRows((rows) =>
+      rows.map((row) =>
+        row.day_of_week === dayOfWeek ? { ...row, ...patch } : row,
+      ),
+    );
+  }
+
+  async function handleSaveWorkingHours() {
+    for (const row of dayWorkingRows) {
+      if (row.is_working && (!row.open_time?.trim() || !row.close_time?.trim())) {
+        setHoursMessage({
+          type: "error",
+          text: `Completa apertura y cierre para ${row.label}.`,
+        });
+        return;
+      }
+    }
+
+    setSavingHours(true);
+    setHoursMessage(null);
+
+    try {
+      for (const row of dayWorkingRows) {
+        const payload = {
+          day_of_week: row.day_of_week,
+          is_working: row.is_working,
+          open_time: row.is_working ? row.open_time : null,
+          close_time: row.is_working ? row.close_time : null,
+          break_start:
+            row.is_working && row.break_start?.trim() ? row.break_start : null,
+          break_end:
+            row.is_working && row.break_end?.trim() ? row.break_end : null,
+        };
+
+        if (row.dbId) {
+          await updateWorkingHour.mutateAsync({ id: row.dbId, ...payload });
+        } else {
+          await createWorkingHour.mutateAsync(payload);
+        }
+      }
+
+      const refetchResult = await refetchWorkingHours();
+      const listPayload = refetchResult.data;
+      const orgHours = (listPayload?.data ?? []).filter(
+        (r: WorkingHours) => r.professional_id == null,
+      );
+      setDayWorkingRows(buildDayRows(orgHours));
+      hoursInitRef.current = true;
+      setHoursMessage({
+        type: "success",
+        text: "Horarios guardados correctamente.",
+      });
+    } catch (err: unknown) {
+      const text =
+        err instanceof Error ? err.message : "Error al guardar horarios";
+      setHoursMessage({ type: "error", text });
+    } finally {
+      setSavingHours(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -434,49 +576,135 @@ export default function ConfiguracionPage() {
           </div>
         </div>
 
-        {/* Horarios */}
+        {/* Horarios (granular por día — solo horario de organización) */}
         <div className="bg-white rounded-xl shadow-sm border p-6">
-          <h2 className="text-lg font-semibold mb-4">🕐 Horarios</h2>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Hora de apertura</label>
-                <input
-                  type="time"
-                  value={config.opening_time}
-                  onChange={(e) => setConfig({ ...config, opening_time: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Hora de cierre</label>
-                <input
-                  type="time"
-                  value={config.closing_time}
-                  onChange={(e) => setConfig({ ...config, closing_time: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+          <h2 className="text-lg font-semibold mb-2">🕐 Horarios por día</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Estos horarios se usan en la página pública de reservas (sin profesional
+            asignado). Si no guardaste ninguno, se sigue el horario por defecto
+            9:00–20:00.
+          </p>
+          {hoursMessage && (
+            <div
+              className={`mb-4 p-4 rounded-lg ${
+                hoursMessage.type === "success"
+                  ? "bg-green-50 text-green-700 border border-green-200"
+                  : "bg-red-50 text-red-700 border border-red-200"
+              }`}
+            >
+              {hoursMessage.text}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Días de trabajo</label>
-              <div className="flex flex-wrap gap-2">
-                {dayNames.map((day) => (
-                  <button
-                    key={day.value}
-                    type="button"
-                    onClick={() => toggleDay(day.value)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      config.working_days.includes(day.value)
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
+          )}
+          {workingHoursLoading && (
+            <p className="text-sm text-gray-500 mb-4">Cargando horarios…</p>
+          )}
+          <div className="overflow-x-auto -mx-2">
+            <table className="w-full min-w-[640px] text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200 text-left text-gray-600">
+                  <th className="py-2 pr-2 font-medium">Día</th>
+                  <th className="py-2 px-2 font-medium w-24">Abierto</th>
+                  <th className="py-2 px-2 font-medium">Apertura</th>
+                  <th className="py-2 px-2 font-medium">Cierre</th>
+                  <th className="py-2 px-2 font-medium">Pausa inicio</th>
+                  <th className="py-2 px-2 font-medium">Pausa fin</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dayWorkingRows.map((row) => (
+                  <tr
+                    key={row.day_of_week}
+                    className="border-b border-gray-100 last:border-0"
                   >
-                    {day.label}
-                  </button>
+                    <td className="py-3 pr-2 font-medium text-gray-800">
+                      {row.label}
+                    </td>
+                    <td className="py-3 px-2">
+                      <input
+                        type="checkbox"
+                        checked={row.is_working}
+                        onChange={(e) =>
+                          patchDayRow(row.day_of_week, {
+                            is_working: e.target.checked,
+                          })
+                        }
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        aria-label={`${row.label} abierto`}
+                      />
+                    </td>
+                    <td className="py-3 px-2">
+                      <input
+                        type="time"
+                        value={row.open_time}
+                        onChange={(e) =>
+                          patchDayRow(row.day_of_week, {
+                            open_time: e.target.value,
+                          })
+                        }
+                        disabled={!row.is_working}
+                        className="w-full min-w-[6rem] px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                    </td>
+                    <td className="py-3 px-2">
+                      <input
+                        type="time"
+                        value={row.close_time}
+                        onChange={(e) =>
+                          patchDayRow(row.day_of_week, {
+                            close_time: e.target.value,
+                          })
+                        }
+                        disabled={!row.is_working}
+                        className="w-full min-w-[6rem] px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                    </td>
+                    <td className="py-3 px-2">
+                      <input
+                        type="time"
+                        value={row.break_start}
+                        onChange={(e) =>
+                          patchDayRow(row.day_of_week, {
+                            break_start: e.target.value,
+                          })
+                        }
+                        disabled={!row.is_working}
+                        placeholder="Sin pausa"
+                        className="w-full min-w-[6rem] px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                    </td>
+                    <td className="py-3 px-2">
+                      <input
+                        type="time"
+                        value={row.break_end}
+                        onChange={(e) =>
+                          patchDayRow(row.day_of_week, {
+                            break_end: e.target.value,
+                          })
+                        }
+                        disabled={!row.is_working}
+                        placeholder="Sin pausa"
+                        className="w-full min-w-[6rem] px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                    </td>
+                  </tr>
                 ))}
-              </div>
-            </div>
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={() => void handleSaveWorkingHours()}
+              disabled={
+                savingHours ||
+                createWorkingHour.isPending ||
+                updateWorkingHour.isPending ||
+                workingHoursLoading
+              }
+              className="px-6 py-2.5 rounded-xl font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {savingHours ? "Guardando horarios…" : "Guardar horarios"}
+            </button>
           </div>
         </div>
 

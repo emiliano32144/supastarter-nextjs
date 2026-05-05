@@ -229,13 +229,16 @@ export function useWorkingHours(options?: {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   search?: string;
+  enabled?: boolean;
 }) {
+  const { enabled: enabledOption, ...listOptions } = options ?? {};
   return useQuery({
-    queryKey: ["reservas", "working_hours", options],
+    queryKey: ["reservas", "working_hours", listOptions],
     queryFn: async () => {
-      const result = await orpcClient.reservas.working_hours.list(options);
+      const result = await orpcClient.reservas.working_hours.list(listOptions);
       return result;
     },
+    enabled: enabledOption !== false,
   });
 }
 
@@ -255,7 +258,7 @@ export function useCreateWorking_hour() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (data: Omit<WorkingHours, 'id' | 'created_at' | 'updated_at' | 'organization_id'>) => {
+    mutationFn: async (data: Omit<WorkingHours, "id" | "created_at" | "organization_id">) => {
       return await orpcClient.reservas.working_hours.create(data as unknown as Parameters<typeof orpcClient.reservas.working_hours.create>[0]);
     },
     onSuccess: () => {

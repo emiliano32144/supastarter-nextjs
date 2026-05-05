@@ -4,6 +4,7 @@
 // Generated: 2025-12-08
 // ═══════════════════════════════════════════════════════════════
 
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { protectedProcedure } from "../../../orpc/procedures";
 import { createClient } from "@supabase/supabase-js";
@@ -451,7 +452,11 @@ export const createProfessionals = protectedProcedure
         }
         const { data, error } = await supabase
             .from("professionals")
-            .insert({ ...input, organization_id: organizationId })
+            .insert({
+                id: randomUUID(),
+                ...input,
+                organization_id: organizationId,
+            })
             .select()
             .single();
         if (error) {
@@ -596,9 +601,13 @@ export const getWorkingHours = protectedProcedure
 export const createWorkingHours = protectedProcedure
     .route({ method: "POST", path: "/reservas/working_hours" })
     .input(z.object({
-        professional_id: z.string().uuid().optional(),
-        day_of_week: z.number().int().optional(),
+        professional_id: z.union([z.string().uuid(), z.null()]).optional(),
+        day_of_week: z.number().int().min(0).max(6).optional(),
         is_working: z.boolean().optional(),
+        open_time: z.string().nullable().optional(),
+        close_time: z.string().nullable().optional(),
+        break_start: z.string().nullable().optional(),
+        break_end: z.string().nullable().optional(),
     }))
     .handler(async ({ input, context }) => {
         const organizationId = context.session?.activeOrganizationId;
@@ -607,7 +616,11 @@ export const createWorkingHours = protectedProcedure
         }
         const { data, error } = await supabase
             .from("working_hours")
-            .insert({ ...input, organization_id: organizationId })
+            .insert({
+                id: randomUUID(),
+                ...input,
+                organization_id: organizationId,
+            })
             .select()
             .single();
         if (error) {
@@ -621,9 +634,13 @@ export const updateWorkingHours = protectedProcedure
     .route({ method: "PUT", path: "/reservas/working_hours/:id" })
     .input(z.object({
         id: z.string().uuid(),
-        professional_id: z.string().uuid().optional(),
-        day_of_week: z.number().int().optional(),
+        professional_id: z.union([z.string().uuid(), z.null()]).optional(),
+        day_of_week: z.number().int().min(0).max(6).optional(),
         is_working: z.boolean().optional(),
+        open_time: z.string().nullable().optional(),
+        close_time: z.string().nullable().optional(),
+        break_start: z.string().nullable().optional(),
+        break_end: z.string().nullable().optional(),
     }))
     .handler(async ({ input, context }) => {
         const { id, ...updateData } = input;
@@ -764,7 +781,11 @@ export const createClients = protectedProcedure
         }
         const { data, error } = await supabase
             .from("clients")
-            .insert({ ...input, organization_id: organizationId })
+            .insert({
+                id: randomUUID(),
+                ...input,
+                organization_id: organizationId,
+            })
             .select()
             .single();
         if (error) {
