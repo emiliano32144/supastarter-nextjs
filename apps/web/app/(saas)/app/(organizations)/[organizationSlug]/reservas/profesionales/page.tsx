@@ -65,10 +65,18 @@ export default function ProfesionalesPage() {
     setFormError(null);
     
     try {
+      const payload = {
+        ...formData,
+        email: formData.email || null,
+        phone: formData.phone || null,
+        avatar_url: formData.avatar_url || null,
+        specialties: formData.specialties || null,
+      };
+
       if (editingId) {
-        await updateProfessional.mutateAsync({ id: editingId, ...formData } as any);
+        await updateProfessional.mutateAsync({ id: editingId, ...payload } as any);
       } else {
-        await createProfessional.mutateAsync(formData as any);
+        await createProfessional.mutateAsync(payload as any);
       }
       setIsModalOpen(false);
       setFormData(initialFormData);

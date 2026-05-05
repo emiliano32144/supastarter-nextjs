@@ -289,7 +289,7 @@ export default function ConfiguracionPage() {
               </label>
               <input
                 type="url"
-                value={config.logo_url}
+                value={config.logo_url || ""}
                 onChange={(e) => setConfig({ ...config, logo_url: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="https://ejemplo.com/logo.png"
@@ -395,7 +395,7 @@ export default function ConfiguracionPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
               <input
                 type="tel"
-                value={config.phone}
+                value={config.phone || ""}
                 onChange={(e) => setConfig({ ...config, phone: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="+34 600 000 000"
@@ -405,7 +405,7 @@ export default function ConfiguracionPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
               <input
                 type="email"
-                value={config.email}
+                value={config.email || ""}
                 onChange={(e) => setConfig({ ...config, email: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="hola@misalon.com"
@@ -415,7 +415,7 @@ export default function ConfiguracionPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
               <input
                 type="text"
-                value={config.address}
+                value={config.address || ""}
                 onChange={(e) => setConfig({ ...config, address: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Calle Principal 123"
@@ -425,7 +425,7 @@ export default function ConfiguracionPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
               <input
                 type="text"
-                value={config.city}
+                value={config.city || ""}
                 onChange={(e) => setConfig({ ...config, city: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Barcelona"
@@ -488,7 +488,7 @@ export default function ConfiguracionPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Instagram</label>
               <input
                 type="url"
-                value={config.instagram_url}
+                value={config.instagram_url || ""}
                 onChange={(e) => setConfig({ ...config, instagram_url: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="https://instagram.com/misalon"
@@ -498,7 +498,7 @@ export default function ConfiguracionPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Facebook</label>
               <input
                 type="url"
-                value={config.facebook_url}
+                value={config.facebook_url || ""}
                 onChange={(e) => setConfig({ ...config, facebook_url: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="https://facebook.com/misalon"
@@ -508,7 +508,7 @@ export default function ConfiguracionPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Sitio web</label>
               <input
                 type="url"
-                value={config.website_url}
+                value={config.website_url || ""}
                 onChange={(e) => setConfig({ ...config, website_url: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="https://misalon.com"

@@ -38,6 +38,27 @@ type Professional = {
   avatar_url?: string;
 };
 
+type WorkingHour = {
+  id: string;
+  organization_id: string;
+  professional_id: string | null;
+  day_of_week: number;
+  is_working: boolean;
+  open_time: string | null;
+  close_time: string | null;
+  break_start: string | null;
+  break_end: string | null;
+};
+
+type ExistingBooking = {
+  id: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  status: string;
+  professional_id: string | null;
+};
+
 type StyleFromAPI = {
   id: string;
   name: string;
@@ -63,6 +84,8 @@ export default function PublicBookingPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [organizationId, setOrganizationId] = useState<string>("");
+  const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
+  const [existingBookings, setExistingBookings] = useState<ExistingBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [styles, setStyles] = useState<TrendStyle[]>([]);
@@ -105,6 +128,8 @@ export default function PublicBookingPage() {
         setBusiness(data.business);
         setServices(data.services || []);
         setProfessionals(data.professionals || []);
+        setWorkingHours(data.workingHours || []);
+        setExistingBookings(data.bookings || []);
         setOrganizationId(data.organizationId || slug);
 
         // Load styles from gallery
@@ -220,20 +245,219 @@ export default function PublicBookingPage() {
     setStep(matchingService ? 2 : 1);
   };
 
-  // Generate time slots
-  const timeSlots = [];
-  for (let h = 9; h < 20; h++) {
-    timeSlots.push(`${h.toString().padStart(2, "0")}:00`);
-    timeSlots.push(`${h.toString().padStart(2, "0")}:30`);
+  function toMinutes(time: string) {
+    const [hours, minutes] = time.slice(0, 5).split(":").map(Number);
+    return hours * 60 + minutes;
   }
 
-  // Generate dates
-  const dates = [];
-  for (let i = 1; i <= 14; i++) {
-    const date = new Date();
-    date.setDate(date.getDate() + i);
-    dates.push(date.toISOString().split("T")[0]);
+  function toTime(minutes: number) {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
   }
+
+  function formatDateLocal(date: Date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function isOverlapping(startA: number, endA: number, startB: number, endB: number) {
+    return startA < endB && startB < endA;
+  }
+
+  function getWorkingHourRule(dayOfWeek: number, professionalId?: string | null) {
+    if (professionalId) {
+      const professionalRule = workingHours.find(
+        (item) =>
+          item.day_of_week === dayOfWeek &&
+          item.professional_id === professionalId,
+      );
+      if (professionalRule) return professionalRule;
+    }
+
+    return (
+      workingHours.find(
+        (item) =>
+          item.day_of_week === dayOfWeek &&
+          (item.professional_id === null || item.professional_id === undefined),
+      ) || null
+    );
+  }
+
+  function isProfessionalAvailableForSlot(
+    professionalId: string | null,
+    date: string,
+    slotStartMinutes: number,
+    slotEndMinutes: number,
+  ) {
+    const dateObj = new Date(`${date}T12:00:00`);
+    const dayOfWeek = dateObj.getDay();
+    const rule = getWorkingHourRule(dayOfWeek, professionalId);
+
+    if (!rule || !rule.is_working || !rule.open_time || !rule.close_time) return false;
+
+    const openMinutes = toMinutes(rule.open_time);
+    const closeMinutes = toMinutes(rule.close_time);
+
+    if (slotStartMinutes < openMinutes || slotEndMinutes > closeMinutes) return false;
+
+    if (rule.break_start && rule.break_end) {
+      const breakStart = toMinutes(rule.break_start);
+      const breakEnd = toMinutes(rule.break_end);
+      if (isOverlapping(slotStartMinutes, slotEndMinutes, breakStart, breakEnd)) return false;
+    }
+
+    const conflicts = existingBookings.some((booking) => {
+      if (booking.date !== date) return false;
+      if (professionalId && booking.professional_id !== professionalId) return false;
+      if (!professionalId && booking.professional_id !== null) return false;
+
+      const bookingStart = toMinutes(booking.start_time);
+      const bookingEnd = toMinutes(booking.end_time);
+      return isOverlapping(slotStartMinutes, slotEndMinutes, bookingStart, bookingEnd);
+    });
+
+    return !conflicts;
+  }
+
+  const serviceDuration = selectedService?.duration || 30;
+  const hasWorkingHours = workingHours.length > 0;
+
+  const dates = (() => {
+    if (!hasWorkingHours) {
+      const fallbackDates: string[] = [];
+      for (let i = 1; i <= 14; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() + i);
+        fallbackDates.push(formatDateLocal(date));
+      }
+      return fallbackDates;
+    }
+
+    const availableDates: string[] = [];
+    for (let i = 1; i <= 14; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() + i);
+      const dayOfWeek = date.getDay();
+      const dateString = formatDateLocal(date);
+
+      const isWorkingDay = selectedProfessional
+        ? Boolean(getWorkingHourRule(dayOfWeek, selectedProfessional.id)?.is_working)
+        : professionals.length > 0
+          ? professionals.some((professional) =>
+              Boolean(getWorkingHourRule(dayOfWeek, professional.id)?.is_working),
+            )
+          : Boolean(getWorkingHourRule(dayOfWeek, null)?.is_working);
+
+      if (isWorkingDay) availableDates.push(dateString);
+    }
+    return availableDates;
+  })();
+
+  const timeSlots = (() => {
+    if (!selectedDate) {
+      if (!hasWorkingHours) {
+        const fallbackSlots: string[] = [];
+        for (let h = 9; h < 20; h++) {
+          fallbackSlots.push(`${h.toString().padStart(2, "0")}:00`);
+          fallbackSlots.push(`${h.toString().padStart(2, "0")}:30`);
+        }
+        return fallbackSlots;
+      }
+      return [];
+    }
+
+    if (!hasWorkingHours) {
+      const fallbackSlots: string[] = [];
+      for (let h = 9; h < 20; h++) {
+        fallbackSlots.push(`${h.toString().padStart(2, "0")}:00`);
+        fallbackSlots.push(`${h.toString().padStart(2, "0")}:30`);
+      }
+      return fallbackSlots;
+    }
+
+    const dateObj = new Date(`${selectedDate}T12:00:00`);
+    const dayOfWeek = dateObj.getDay();
+    const rule = selectedProfessional
+      ? getWorkingHourRule(dayOfWeek, selectedProfessional.id)
+      : getWorkingHourRule(dayOfWeek, null) ||
+        (professionals.length > 0
+          ? getWorkingHourRule(dayOfWeek, professionals[0]?.id)
+          : null);
+
+    if (!rule || !rule.is_working || !rule.open_time || !rule.close_time) return [];
+
+    const openMinutes = toMinutes(rule.open_time);
+    const closeMinutes = toMinutes(rule.close_time);
+    const breakStart = rule.break_start ? toMinutes(rule.break_start) : null;
+    const breakEnd = rule.break_end ? toMinutes(rule.break_end) : null;
+    const lastStart = closeMinutes - serviceDuration;
+
+    const slots: string[] = [];
+    for (let current = openMinutes; current <= lastStart; current += 30) {
+      const slotEnd = current + serviceDuration;
+
+      if (
+        breakStart !== null &&
+        breakEnd !== null &&
+        isOverlapping(current, slotEnd, breakStart, breakEnd)
+      ) {
+        continue;
+      }
+
+      slots.push(toTime(current));
+    }
+
+    return slots;
+  })();
+
+  const unavailableSlots = (() => {
+    if (!selectedDate || !hasWorkingHours) return new Set<string>();
+
+    return new Set(
+      timeSlots.filter((slot) => {
+        const slotStart = toMinutes(slot);
+        const slotEnd = slotStart + serviceDuration;
+
+        if (selectedProfessional) {
+          return !isProfessionalAvailableForSlot(
+            selectedProfessional.id,
+            selectedDate,
+            slotStart,
+            slotEnd,
+          );
+        }
+
+        if (professionals.length === 0) {
+          return !isProfessionalAvailableForSlot(
+            null,
+            selectedDate,
+            slotStart,
+            slotEnd,
+          );
+        }
+
+        const atLeastOneAvailable = professionals.some((professional) =>
+          isProfessionalAvailableForSlot(
+            professional.id,
+            selectedDate,
+            slotStart,
+            slotEnd,
+          ),
+        );
+        return !atLeastOneAvailable;
+      }),
+    );
+  })();
+
+  useEffect(() => {
+    if (!selectedDate || !selectedTime) return;
+    if (!timeSlots.includes(selectedTime) || unavailableSlots.has(selectedTime)) {
+      setSelectedTime("");
+    }
+  }, [selectedDate, selectedProfessional, selectedService, selectedTime, timeSlots, unavailableSlots]);
 
   if (loading) {
     return (
@@ -803,12 +1027,19 @@ export default function PublicBookingPage() {
                       <div className="grid grid-cols-4 gap-2">
                         {timeSlots.map((time) => {
                           const isSelected = selectedTime === time;
+                          const isUnavailable = unavailableSlots.has(time);
                           return (
                             <button
                               key={time}
-                              onClick={() => setSelectedTime(time)}
+                              onClick={() => !isUnavailable && setSelectedTime(time)}
+                              disabled={isUnavailable}
+                              title={isUnavailable ? "Ocupado" : undefined}
                               className={`py-2 rounded-lg text-sm transition-all ${
-                                isSelected ? "text-black" : "bg-white/5 hover:bg-white/10"
+                                isSelected
+                                  ? "text-black"
+                                  : isUnavailable
+                                    ? "bg-white/5 opacity-50 cursor-not-allowed"
+                                    : "bg-white/5 hover:bg-white/10"
                               }`}
                               style={isSelected ? { backgroundColor: accentColor } : {}}
                             >

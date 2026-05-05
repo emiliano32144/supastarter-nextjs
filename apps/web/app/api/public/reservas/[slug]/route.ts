@@ -70,6 +70,38 @@ export async function GET(
       return NextResponse.json({ error: "Error loading professionals" }, { status: 500 });
     }
 
+    // Obtener horario laboral (general + por profesional)
+    const { data: workingHours, error: workingHoursError } = await supabase
+      .from("working_hours")
+      .select("id, organization_id, professional_id, day_of_week, is_working, open_time, close_time, break_start, break_end")
+      .eq("organization_id", organizationId)
+      .order("day_of_week", { ascending: true });
+
+    if (workingHoursError) {
+      console.error("Error fetching working_hours:", workingHoursError);
+      return NextResponse.json({ error: "Error loading working hours" }, { status: 500 });
+    }
+
+    const today = new Date();
+    const fromDate = today.toISOString().slice(0, 10);
+    const toDateObj = new Date(today);
+    toDateObj.setDate(toDateObj.getDate() + 30);
+    const toDate = toDateObj.toISOString().slice(0, 10);
+
+    // Obtener reservas futuras para calcular disponibilidad en frontend
+    const { data: bookings, error: bookingsError } = await supabase
+      .from("bookings")
+      .select("id, date, start_time, end_time, status, professional_id")
+      .eq("organization_id", organizationId)
+      .in("status", ["pending", "confirmed"])
+      .gte("date", fromDate)
+      .lte("date", toDate);
+
+    if (bookingsError) {
+      console.error("Error fetching bookings:", bookingsError);
+      return NextResponse.json({ error: "Error loading bookings" }, { status: 500 });
+    }
+
     // Construir businessInfo desde la configuración
     const businessInfo = {
       name: businessConfig?.business_name || "Mi Salón",
@@ -95,6 +127,8 @@ export async function GET(
       business: businessInfo,
       services: services || [],
       professionals: professionals || [],
+      workingHours: workingHours || [],
+      bookings: bookings || [],
       organizationId: organizationId,
     });
 
