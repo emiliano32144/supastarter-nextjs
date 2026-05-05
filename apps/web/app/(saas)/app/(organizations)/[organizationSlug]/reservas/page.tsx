@@ -168,7 +168,7 @@ export default function ReservasPage() {
   const getItemsForDate = (day: number) => {
     const dateStr = `${calendarDate.getFullYear()}-${String(calendarDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     return items.filter((item: any) => {
-      const itemDate = item.created_at?.split('T')[0] || item.date || item.due_date;
+      const itemDate = item.date || item.created_at?.split('T')[0] || item.due_date;
       return itemDate === dateStr;
     });
   };
