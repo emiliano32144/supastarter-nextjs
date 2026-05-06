@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import AuthModal from "./components/AuthModal";
 import TrendCard from "./components/TrendCard";
 import ServiceCard from "./components/ServiceCard";
@@ -50,15 +50,6 @@ type WorkingHour = {
   break_end: string | null;
 };
 
-type ExistingBooking = {
-  id: string;
-  date: string;
-  start_time: string;
-  end_time: string;
-  status: string;
-  professional_id: string | null;
-};
-
 type StyleFromAPI = {
   id: string;
   name: string;
@@ -85,7 +76,6 @@ export default function PublicBookingPage() {
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [organizationId, setOrganizationId] = useState<string>("");
   const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
-  const [existingBookings, setExistingBookings] = useState<ExistingBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [styles, setStyles] = useState<TrendStyle[]>([]);
@@ -108,6 +98,9 @@ export default function PublicBookingPage() {
   const [notes, setNotes] = useState("");
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [occupiedSlots, setOccupiedSlots] = useState<
+    { start_time: string; end_time: string }[]
+  >([]);
 
   // Trend modal
   const [selectedTrend, setSelectedTrend] = useState<TrendStyle | null>(null);
@@ -129,7 +122,6 @@ export default function PublicBookingPage() {
         setServices(data.services || []);
         setProfessionals(data.professionals || []);
         setWorkingHours(data.workingHours || []);
-        setExistingBookings(data.bookings || []);
         setOrganizationId(data.organizationId || slug);
 
         // Load styles from gallery
@@ -229,6 +221,30 @@ export default function PublicBookingPage() {
     }
   };
 
+  const loadOccupiedSlots = useCallback(
+    async (date: string, professionalId: string | null) => {
+      try {
+        const profParam = professionalId
+          ? `&professional_id=${encodeURIComponent(professionalId)}`
+          : "";
+        const res = await fetch(
+          `/api/public/reservas/${encodeURIComponent(slug)}/slots?date=${encodeURIComponent(date)}${profParam}`,
+        );
+        const data = await res.json();
+        if (data.success) setOccupiedSlots(data.occupiedSlots || []);
+      } catch (err) {
+        console.error("Error loading occupied slots:", err);
+      }
+    },
+    [slug],
+  );
+
+  useEffect(() => {
+    if (selectedDate) {
+      void loadOccupiedSlots(selectedDate, selectedProfessional?.id ?? null);
+    }
+  }, [selectedDate, selectedProfessional, loadOccupiedSlots]);
+
   const handleBookFromTrend = (trend: TrendStyle) => {
     setIsTrendModalOpen(false);
     setSelectedTrend(null);
@@ -245,6 +261,13 @@ export default function PublicBookingPage() {
     setStep(matchingService ? 2 : 1);
   };
 
+  function formatDateLocal(date: Date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
   function toMinutes(time: string) {
     const [hours, minutes] = time.slice(0, 5).split(":").map(Number);
     return hours * 60 + minutes;
@@ -254,17 +277,6 @@ export default function PublicBookingPage() {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
-  }
-
-  function formatDateLocal(date: Date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  }
-
-  function isOverlapping(startA: number, endA: number, startB: number, endB: number) {
-    return startA < endB && startB < endA;
   }
 
   function getWorkingHourRule(dayOfWeek: number, professionalId?: string | null) {
@@ -286,44 +298,8 @@ export default function PublicBookingPage() {
     );
   }
 
-  function isProfessionalAvailableForSlot(
-    professionalId: string | null,
-    date: string,
-    slotStartMinutes: number,
-    slotEndMinutes: number,
-  ) {
-    const dateObj = new Date(`${date}T12:00:00`);
-    const dayOfWeek = dateObj.getDay();
-    const rule = getWorkingHourRule(dayOfWeek, professionalId);
-
-    if (!rule || !rule.is_working || !rule.open_time || !rule.close_time) return false;
-
-    const openMinutes = toMinutes(rule.open_time);
-    const closeMinutes = toMinutes(rule.close_time);
-
-    if (slotStartMinutes < openMinutes || slotEndMinutes > closeMinutes) return false;
-
-    if (rule.break_start && rule.break_end) {
-      const breakStart = toMinutes(rule.break_start);
-      const breakEnd = toMinutes(rule.break_end);
-      if (isOverlapping(slotStartMinutes, slotEndMinutes, breakStart, breakEnd)) return false;
-    }
-
-    const conflicts = existingBookings.some((booking) => {
-      if (booking.date !== date) return false;
-      if (professionalId && booking.professional_id !== professionalId) return false;
-      if (!professionalId && booking.professional_id !== null) return false;
-
-      const bookingStart = toMinutes(booking.start_time);
-      const bookingEnd = toMinutes(booking.end_time);
-      return isOverlapping(slotStartMinutes, slotEndMinutes, bookingStart, bookingEnd);
-    });
-
-    return !conflicts;
-  }
-
-  const serviceDuration = selectedService?.duration || 30;
   const hasWorkingHours = workingHours.length > 0;
+  const serviceDuration = selectedService?.duration || 30;
 
   const dates = (() => {
     if (!hasWorkingHours) {
@@ -356,7 +332,7 @@ export default function PublicBookingPage() {
     return availableDates;
   })();
 
-  const timeSlots = (() => {
+  const allSlots = useMemo(() => {
     if (!selectedDate) {
       if (!hasWorkingHours) {
         const fallbackSlots: string[] = [];
@@ -402,7 +378,8 @@ export default function PublicBookingPage() {
       if (
         breakStart !== null &&
         breakEnd !== null &&
-        isOverlapping(current, slotEnd, breakStart, breakEnd)
+        current < breakEnd &&
+        breakStart < slotEnd
       ) {
         continue;
       }
@@ -411,53 +388,66 @@ export default function PublicBookingPage() {
     }
 
     return slots;
-  })();
+  }, [
+    selectedDate,
+    selectedProfessional,
+    professionals,
+    hasWorkingHours,
+    serviceDuration,
+    workingHours,
+  ]);
 
-  const unavailableSlots = (() => {
-    if (!selectedDate || !hasWorkingHours) return new Set<string>();
+  const timeSlots = useMemo(
+    () =>
+      allSlots.filter((slot) => {
+        const [slotHour, slotMin] = slot.split(":").map(Number);
+        const slotMinutes = slotHour * 60 + slotMin;
 
-    return new Set(
-      timeSlots.filter((slot) => {
-        const slotStart = toMinutes(slot);
-        const slotEnd = slotStart + serviceDuration;
+        return !occupiedSlots.some((occupied) => {
+          const [startHour, startMin] = occupied.start_time.split(":").map(Number);
+          const [endHour, endMin] = occupied.end_time.split(":").map(Number);
+          const startMinutes = startHour * 60 + startMin;
+          const endMinutes = endHour * 60 + endMin;
 
-        if (selectedProfessional) {
-          return !isProfessionalAvailableForSlot(
-            selectedProfessional.id,
-            selectedDate,
-            slotStart,
-            slotEnd,
-          );
-        }
-
-        if (professionals.length === 0) {
-          return !isProfessionalAvailableForSlot(
-            null,
-            selectedDate,
-            slotStart,
-            slotEnd,
-          );
-        }
-
-        const atLeastOneAvailable = professionals.some((professional) =>
-          isProfessionalAvailableForSlot(
-            professional.id,
-            selectedDate,
-            slotStart,
-            slotEnd,
-          ),
-        );
-        return !atLeastOneAvailable;
+          return slotMinutes >= startMinutes && slotMinutes < endMinutes;
+        });
       }),
-    );
-  })();
+    [allSlots, occupiedSlots],
+  );
+
+  const unavailableSlots = useMemo(() => {
+    const set = new Set<string>();
+    if (!selectedDate) {
+      return set;
+    }
+    const today = formatDateLocal(new Date());
+    if (selectedDate !== today) {
+      return set;
+    }
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    for (const slot of allSlots) {
+      const [hours, mins] = slot.split(":").map(Number);
+      const slotMinutes = hours * 60 + mins;
+      if (slotMinutes < nowMinutes) {
+        set.add(slot);
+      }
+    }
+    return set;
+  }, [selectedDate, allSlots]);
 
   useEffect(() => {
     if (!selectedDate || !selectedTime) return;
     if (!timeSlots.includes(selectedTime) || unavailableSlots.has(selectedTime)) {
       setSelectedTime("");
     }
-  }, [selectedDate, selectedProfessional, selectedService, selectedTime, timeSlots, unavailableSlots]);
+  }, [
+    selectedDate,
+    selectedProfessional,
+    selectedTime,
+    timeSlots,
+    unavailableSlots,
+  ]);
 
   if (loading) {
     return (
@@ -1025,20 +1015,28 @@ export default function PublicBookingPage() {
                     <div className="mb-6">
                       <label className="text-sm text-gray-400 mb-2 block">Hora</label>
                       <div className="grid grid-cols-4 gap-2">
-                        {timeSlots.map((time) => {
+                        {allSlots.map((time) => {
                           const isSelected = selectedTime === time;
-                          const isUnavailable = unavailableSlots.has(time);
+                          const isAvailable =
+                            timeSlots.includes(time) && !unavailableSlots.has(time);
                           return (
                             <button
                               key={time}
-                              onClick={() => !isUnavailable && setSelectedTime(time)}
-                              disabled={isUnavailable}
-                              title={isUnavailable ? "Ocupado" : undefined}
+                              type="button"
+                              onClick={() => isAvailable && setSelectedTime(time)}
+                              disabled={!isAvailable}
+                              title={
+                                !isAvailable
+                                  ? unavailableSlots.has(time)
+                                    ? "Ya pasó"
+                                    : "Ocupado"
+                                  : undefined
+                              }
                               className={`py-2 rounded-lg text-sm transition-all ${
                                 isSelected
                                   ? "text-black"
-                                  : isUnavailable
-                                    ? "bg-white/5 opacity-50 cursor-not-allowed"
+                                  : !isAvailable
+                                    ? "bg-white/5 opacity-30 cursor-not-allowed line-through"
                                     : "bg-white/5 hover:bg-white/10"
                               }`}
                               style={isSelected ? { backgroundColor: accentColor } : {}}

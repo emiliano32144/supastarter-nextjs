@@ -130,14 +130,22 @@ export async function POST(
           })
           .eq("id", booking.client_profile_id);
 
-        // Registrar en historial de XP
-        await supabase.from("xp_history").insert({
-          organization_id: booking.organization_id,
-          client_profile_id: booking.client_profile_id,
-          xp_amount: xpValue,
-          reason: `Servicio completado: ${serviceName}`,
-          booking_id: bookingId,
-        });
+        const { data: existingXp } = await supabase
+          .from("xp_history")
+          .select("id")
+          .eq("booking_id", bookingId)
+          .maybeSingle();
+
+        if (!existingXp) {
+          // Registrar en historial de XP
+          await supabase.from("xp_history").insert({
+            organization_id: booking.organization_id,
+            client_profile_id: booking.client_profile_id,
+            xp_amount: xpValue,
+            reason: `Servicio completado: ${serviceName}`,
+            booking_id: bookingId,
+          });
+        }
 
         xpAwarded = xpValue;
       }

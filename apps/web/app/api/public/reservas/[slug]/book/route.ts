@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendBookingConfirmationEmail } from "../../../../../../lib/email/booking-emails";
+import {
+  sendBookingConfirmationEmail,
+  sendBookingNotificationEmail,
+} from "../../../../../../lib/email/booking-emails";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -195,6 +198,27 @@ export async function POST(
       console.log('📧 Resultado del email:', emailResult);
     } catch (emailError) {
       console.error('❌ Error enviando email:', emailError);
+    }
+
+    if (businessConfig?.email) {
+      try {
+        const notifyResult = await sendBookingNotificationEmail({
+          clientName: client_name,
+          clientEmail: client_email,
+          serviceName: service?.name || 'Servicio',
+          professionalName: professional?.name || null,
+          date: date,
+          time: start_time,
+          price: service?.price || 0,
+          businessName: businessConfig?.business_name || 'Barbería',
+          businessPhone: businessConfig?.phone || undefined,
+          businessAddress: businessConfig?.address ? `${businessConfig.address}${businessConfig.city ? `, ${businessConfig.city}` : ''}` : undefined,
+          businessEmail: businessConfig.email,
+        });
+        console.log('📧 Notificación peluquero:', notifyResult);
+      } catch (notifyError) {
+        console.error('❌ Error notificación peluquero:', notifyError);
+      }
     }
 
     return NextResponse.json({

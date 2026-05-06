@@ -12,28 +12,43 @@ export async function GET(
   try {
     const { slug } = await params;
     
-    // Buscar configuración del negocio - primero por slug, luego por organization_id
     let businessConfig = null;
     let organizationId = slug;
-    
-    // Intentar buscar por slug
-    const { data: configBySlug } = await supabase
+
+    const { data: configBySlug, error: slugError } = await supabase
       .from("business_config")
       .select("*")
       .eq("slug", slug)
-      .single();
-    
+      .maybeSingle();
+
+    console.log(
+      "🔍 Buscando negocio por slug:",
+      slug,
+      "Resultado:",
+      configBySlug,
+      "Error:",
+      slugError,
+    );
+
     if (configBySlug) {
       businessConfig = configBySlug;
       organizationId = configBySlug.organization_id;
     } else {
-      // Si no encuentra por slug, buscar por organization_id
-      const { data: configById } = await supabase
+      const { data: configById, error: idError } = await supabase
         .from("business_config")
         .select("*")
         .eq("organization_id", slug)
-        .single();
-      
+        .maybeSingle();
+
+      console.log(
+        "🔍 Buscando negocio por organization_id:",
+        slug,
+        "Resultado:",
+        configById,
+        "Error:",
+        idError,
+      );
+
       if (configById) {
         businessConfig = configById;
         organizationId = configById.organization_id;
