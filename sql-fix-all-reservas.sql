@@ -1,5 +1,5 @@
 -- ============================================
--- FIX QUIRURGICO v3 - Sistema de Barberia
+-- FIX QUIRURGICO v4 - Sistema de Barberia
 -- Idempotente: seguro re-ejecutar 100 veces
 -- Verificado contra: 
 --   - migration.sql (tablas base: services, professionals, clients, working_hours, bookings)
@@ -248,6 +248,67 @@ END $$;
 UPDATE services SET xp_value = 100 WHERE xp_value IS NULL;
 
 -- ============================================
+-- working_hours (GRANULAR)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS working_hours (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id TEXT NOT NULL,
+    professional_id UUID,
+    day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+    open_time TIME NOT NULL,
+    close_time TIME NOT NULL,
+    break_start TIME,
+    break_end TIME,
+    is_working BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_working_hours_org ON working_hours(organization_id);
+CREATE INDEX IF NOT EXISTS idx_working_hours_prof ON working_hours(organization_id, professional_id);
+
+-- Migrar columnas viejas (start_time/end_time → open_time/close_time) si existen
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'working_hours' AND column_name = 'start_time'
+    ) THEN
+        ALTER TABLE working_hours RENAME COLUMN start_time TO open_time;
+        RAISE NOTICE 'Migrado: working_hours.start_time → open_time';
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'working_hours' AND column_name = 'end_time'
+    ) THEN
+        ALTER TABLE working_hours RENAME COLUMN end_time TO close_time;
+        RAISE NOTICE 'Migrado: working_hours.end_time → close_time';
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'working_hours' AND column_name = 'break_start'
+    ) THEN
+        ALTER TABLE working_hours ADD COLUMN break_start TIME;
+        RAISE NOTICE 'Añadida: working_hours.break_start';
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'working_hours' AND column_name = 'break_end'
+    ) THEN
+        ALTER TABLE working_hours ADD COLUMN break_end TIME;
+        RAISE NOTICE 'Añadida: working_hours.break_end';
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'working_hours' AND column_name = 'is_working'
+    ) THEN
+        ALTER TABLE working_hours ADD COLUMN is_working BOOLEAN DEFAULT true;
+        RAISE NOTICE 'Añadida: working_hours.is_working';
+    END IF;
+END $$;
+
+-- ============================================
 -- TRIGGERS updated_at PARA TABLAS EXISTENTES
 -- ============================================
 
@@ -303,7 +364,7 @@ END $$;
 -- ============================================
 
 SELECT 
-    'FIX COMPLETADO v3' as status,
+    'FIX COMPLETADO v4' as status,
     NOW() as executed_at,
     (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'bookings') as bookings_columns,
     (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'services') as services_columns,
@@ -312,4 +373,5 @@ SELECT
     CASE WHEN to_regclass('earned_rewards') IS NOT NULL THEN 'OK' ELSE 'FALTA' END as earned_rewards,
     CASE WHEN to_regclass('cut_photos') IS NOT NULL THEN 'OK' ELSE 'FALTA' END as cut_photos,
     CASE WHEN to_regclass('client_profiles') IS NOT NULL THEN 'OK' ELSE 'FALTA' END as client_profiles,
-    CASE WHEN to_regclass('clients') IS NOT NULL THEN 'OK' ELSE 'FALTA' END as clients;
+    CASE WHEN to_regclass('clients') IS NOT NULL THEN 'OK' ELSE 'FALTA' END as clients,
+    CASE WHEN to_regclass('working_hours') IS NOT NULL THEN 'OK' ELSE 'FALTA' END as working_hours;

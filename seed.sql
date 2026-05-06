@@ -32,7 +32,7 @@ INSERT INTO professionals (id, organization_id, name, specialties, is_active)
 VALUES (prof_id, org_id, 'Carlos', '{Corte clasico, Degradado, Barba}', true);
 
 -- 5. HORARIOS (lunes=1 a sabado=6)
-INSERT INTO working_hours (organization_id, professional_id, day_of_week, start_time, end_time, is_working)
+INSERT INTO working_hours (organization_id, professional_id, day_of_week, open_time, close_time, is_working)
 VALUES
   (org_id, prof_id, 1, '09:00', '20:00', true),
   (org_id, prof_id, 2, '09:00', '20:00', true),
