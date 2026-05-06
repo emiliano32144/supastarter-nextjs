@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+  filo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: filo-app
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    env_file:
+      - .env.production
+    networks:
+      - filo-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: filo-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certbot-data:/etc/letsencrypt:ro
+      - ./certbot-www:/var/www/certbot:ro
+    depends_on:
+      - filo
+    networks:
+      - filo-net
+
+  certbot:
+    image: certbot/certbot
+    container_name: filo-certbot
+    volumes:
+      - ./certbot-data:/etc/letsencrypt
+      - ./certbot-www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h; done'"
+    networks:
+      - filo-net
+
+networks:
+  filo-net:
+    driver: bridge
