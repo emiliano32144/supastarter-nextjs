@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "buildCommand": "pnpm install && pnpm turbo build",
+  "installCommand": "pnpm install",
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "env": {
+    "NEXT_PUBLIC_APP_URL": "@next_public_app_url",
+    "DATABASE_URL": "@database_url",
+    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key",
+    "NEXT_PUBLIC_SUPABASE_URL": "@next_public_supabase_url",
+    "RESEND_API_KEY": "@resend_api_key",
+    "CRON_SECRET": "@cron_secret"
+  }
+}
