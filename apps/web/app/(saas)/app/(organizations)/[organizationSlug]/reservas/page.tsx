@@ -117,12 +117,17 @@ export default function ReservasPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm("¿Estás seguro de eliminar este elemento?")) {
+  const handleDelete = async (id: string, item: any) => {
+    if (item.status === "cancelled") {
+      alert("Esta reserva ya está cancelada.");
+      return;
+    }
+    if (confirm(`¿Cancelar la reserva de ${item.client_name}?\n\nSe enviará un email de cancelación al cliente y al peluquero.`)) {
       try {
         await deleteItem.mutateAsync(id);
+        alert("✅ Reserva cancelada. Se envió notificación al cliente.");
       } catch (err: any) {
-        alert(err.message || "Error al eliminar");
+        alert(err.message || "Error al cancelar");
       }
     }
   };
@@ -168,6 +173,7 @@ export default function ReservasPage() {
   const getItemsForDate = (day: number) => {
     const dateStr = `${calendarDate.getFullYear()}-${String(calendarDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     return items.filter((item: any) => {
+      if (item.status === 'cancelled') return false;
       const itemDate = item.date || item.created_at?.split('T')[0] || item.due_date;
       return itemDate === dateStr;
     });
@@ -395,12 +401,14 @@ export default function ReservasPage() {
                     >
                       Editar
                     </button>
-                    <button
-                      onClick={() => handleDelete(item.id)}
-                      className="text-red-600 hover:text-red-800 text-sm font-medium"
-                    >
-                      Eliminar
-                    </button>
+                    {item.status !== "completed" && item.status !== "cancelled" && (
+                      <button
+                        onClick={() => handleDelete(item.id, item)}
+                        className="text-red-600 hover:text-red-800 text-sm font-medium"
+                      >
+                        ✗ Cancelar
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

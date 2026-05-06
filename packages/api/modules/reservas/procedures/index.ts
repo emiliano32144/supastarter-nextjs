@@ -50,7 +50,8 @@ export const listBookings = protectedProcedure
         let query = supabase
             .from("bookings")
             .select("*", { count: 'exact' })
-            .eq("organization_id", organizationId);
+            .eq("organization_id", organizationId)
+            .neq("status", "cancelled");
         
         // Apply search filter
         if (search) {
@@ -66,7 +67,8 @@ export const listBookings = protectedProcedure
         const countQuery = supabase
             .from("bookings")
             .select("*", { count: 'exact', head: true })
-            .eq("organization_id", organizationId);
+            .eq("organization_id", organizationId)
+            .neq("status", "cancelled");
         if (search) {
             countQuery.or(`client_name.ilike.%${search}%,client_email.ilike.%${search}%,client_phone.ilike.%${search}%,status.ilike.%${search}%,notes.ilike.%${search}%`);
         }
@@ -448,16 +450,78 @@ export const deleteBookings = protectedProcedure
         if (!organizationId) {
             throw new Error("No active organization");
         }
+
+        // 1. Obtener datos del booking ANTES de cambiar el estado (para emails)
+        const { data: booking, error: fetchError } = await supabase
+            .from("bookings")
+            .select("*")
+            .eq("id", input.id)
+            .eq("organization_id", organizationId)
+            .single();
+
+        if (fetchError || !booking) {
+            console.error("Error fetching booking for cancellation:", fetchError);
+            throw new Error("Reserva no encontrada");
+        }
+
+        // 2. Soft delete: cambiar status a 'cancelled'
         const { error } = await supabase
             .from("bookings")
-            .delete()
+            .update({ status: "cancelled", updated_at: new Date().toISOString() })
             .eq("id", input.id)
             .eq("organization_id", organizationId);
+
         if (error) {
-            console.error("Error deleting bookings:", error);
+            console.error("Error cancelling booking:", error);
             throw new Error(error.message);
         }
-        return { success: true };
+
+        // 3. Enviar email de cancelación al cliente
+        try {
+            const { sendBookingCancellationEmail } = await import("../../../../../apps/web/lib/email/booking-emails");
+            if (booking.client_email) {
+                await sendBookingCancellationEmail({
+                    clientName: booking.client_name,
+                    clientEmail: booking.client_email,
+                    serviceName: "Servicio", // fallback
+                    professionalName: null,
+                    date: booking.date,
+                    time: booking.start_time,
+                    price: booking.price || 0,
+                    businessName: "Tu Barbería", // fallback, se obtiene mejor abajo
+                });
+            }
+        } catch (emailError) {
+            console.error("Error sending cancellation email to client:", emailError);
+        }
+
+        // 4. Enviar email al peluquero (si tiene email configurado)
+        try {
+            const { data: businessConfig } = await supabase
+                .from("business_config")
+                .select("business_name, email")
+                .eq("organization_id", organizationId)
+                .single();
+
+            if (businessConfig?.email && booking.client_email) {
+                const { sendBookingNotificationEmail } = await import("../../../../../apps/web/lib/email/booking-emails");
+                await sendBookingNotificationEmail({
+                    clientName: booking.client_name,
+                    clientEmail: booking.client_email,
+                    serviceName: "Servicio",
+                    professionalName: null,
+                    date: booking.date,
+                    time: booking.start_time,
+                    price: booking.price || 0,
+                    businessName: businessConfig.business_name || "Barbería",
+                    businessEmail: businessConfig.email,
+                });
+            }
+        } catch (notifyError) {
+            console.error("Error sending cancellation notification to business:", notifyError);
+        }
+
+        return { success: true, booking };
     });
 
 // ═══════════════════════════════════════════════════════════════

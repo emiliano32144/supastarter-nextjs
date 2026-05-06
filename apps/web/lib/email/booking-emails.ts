@@ -20,6 +20,7 @@ export type BookingEmailData = {
   businessName: string;
   businessPhone?: string;
   businessAddress?: string;
+  bookingId?: string;
 };
 
 type BookingNotificationEmailData = BookingEmailData & {
@@ -119,6 +120,12 @@ export async function sendBookingConfirmationEmail(data: BookingEmailData) {
               ` : ''}
               
               <!-- CTA -->
+              <div style="margin: 25px 0; text-align: center;">
+                <a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/reservas/${bookingId}/cancelar?email=${encodeURIComponent(clientEmail)}" 
+                   style="display: inline-block; padding: 12px 24px; background: #dc2626; color: white; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 500;">
+                  ✗ Cancelar reserva
+                </a>
+              </div>
               <p style="color: #666; font-size: 13px; margin: 25px 0 0 0; text-align: center;">
                 Si necesitas cancelar o modificar tu cita, contáctanos con al menos 24h de antelación.
               </p>
