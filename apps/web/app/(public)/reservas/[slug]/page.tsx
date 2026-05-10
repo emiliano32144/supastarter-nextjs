@@ -25,6 +25,8 @@ type BusinessConfig = {
   workingDays?: number[];
   facebook?: string | null;
   website?: string | null;
+  min_advance_hours?: number;
+  max_advance_days?: number;
 };
 
 type Service = {
@@ -198,7 +200,14 @@ export default function PublicBookingPage() {
   };
 
   const handleBooking = async () => {
-    if (!selectedService || !selectedDate || !selectedTime || !clientName || !clientEmail) return;
+    if (!selectedService || !selectedDate || !selectedTime || !clientName || !clientEmail) {
+      alert("Por favor completá todos los campos obligatorios: nombre, email, servicio, fecha y hora.");
+      return;
+    }
+    if (!clientPhone) {
+      alert("Por favor ingresá un número de teléfono para que podamos contactarte si es necesario.");
+      return;
+    }
     
     setSubmitting(true);
     try {
@@ -308,9 +317,12 @@ export default function PublicBookingPage() {
   const serviceDuration = selectedService?.duration || 30;
 
   const dates = (() => {
+    const maxDays = business?.max_advance_days || 14;
+    const minHours = business?.min_advance_hours || 2;
+    
     if (!hasWorkingHours) {
       const fallbackDates: string[] = [];
-      for (let i = 1; i <= 14; i++) {
+      for (let i = 1; i <= maxDays; i++) {
         const date = new Date();
         date.setDate(date.getDate() + i);
         fallbackDates.push(formatDateLocal(date));
@@ -319,7 +331,7 @@ export default function PublicBookingPage() {
     }
 
     const availableDates: string[] = [];
-    for (let i = 1; i <= 14; i++) {
+    for (let i = 1; i <= maxDays; i++) {
       const date = new Date();
       date.setDate(date.getDate() + i);
       const dayOfWeek = date.getDay();

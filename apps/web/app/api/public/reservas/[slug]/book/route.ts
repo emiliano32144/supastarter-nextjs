@@ -29,7 +29,7 @@ export async function POST(
     } = body;
 
     // Validar campos requeridos
-    if (!service_id || !client_name || !client_email || !client_phone || !date || !start_time) {
+    if (!service_id || !client_name || !client_email || !date || !start_time) {
       return NextResponse.json(
         { error: "Faltan campos requeridos" },
         { status: 400 }
