@@ -58,6 +58,12 @@ type WorkingHour = {
   break_end: string | null;
 };
 
+type BlockedDate = {
+  date: string;           // "YYYY-MM-DD"
+  professional_id: string | null;
+  reason: string | null;
+};
+
 type StyleFromAPI = {
   id: string;
   name: string;
@@ -84,6 +90,7 @@ export default function PublicBookingPage() {
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [organizationId, setOrganizationId] = useState<string>("");
   const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
+  const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [styles, setStyles] = useState<TrendStyle[]>([]);
@@ -130,6 +137,7 @@ export default function PublicBookingPage() {
         setServices(data.services || []);
         setProfessionals(data.professionals || []);
         setWorkingHours(data.workingHours || []);
+        setBlockedDates(data.blockedDates || []);
         setOrganizationId(data.organizationId || slug);
 
         // Load styles from gallery
@@ -294,6 +302,19 @@ export default function PublicBookingPage() {
     return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
   }
 
+  // Devuelve true si la fecha está bloqueada por completo para el profesional seleccionado
+  // Un bloqueo global (professional_id === null) bloquea a todos
+  function isDateBlocked(dateString: string, professionalId?: string | null): boolean {
+    return blockedDates.some((b) => {
+      if (b.date !== dateString) return false;
+      // Bloqueo global (afecta a todos los profesionales)
+      if (b.professional_id === null) return true;
+      // Bloqueo específico del profesional seleccionado
+      if (professionalId && b.professional_id === professionalId) return true;
+      return false;
+    });
+  }
+
   function getWorkingHourRule(dayOfWeek: number, professionalId?: string | null) {
     if (professionalId) {
       const professionalRule = workingHours.find(
@@ -315,6 +336,7 @@ export default function PublicBookingPage() {
 
   const hasWorkingHours = workingHours.length > 0;
   const serviceDuration = selectedService?.duration || 30;
+  const slotStep = business?.slotDuration || 30; // paso del picker: 15, 30, 60 min según config del negocio
 
   const dates = (() => {
     const maxDays = business?.max_advance_days || 14;
@@ -325,7 +347,10 @@ export default function PublicBookingPage() {
       for (let i = 1; i <= maxDays; i++) {
         const date = new Date();
         date.setDate(date.getDate() + i);
-        fallbackDates.push(formatDateLocal(date));
+        const dateString = formatDateLocal(date);
+        if (!isDateBlocked(dateString, selectedProfessional?.id ?? null)) {
+          fallbackDates.push(dateString);
+        }
       }
       return fallbackDates;
     }
@@ -345,12 +370,16 @@ export default function PublicBookingPage() {
             )
           : Boolean(getWorkingHourRule(dayOfWeek, null)?.is_working);
 
-      if (isWorkingDay) availableDates.push(dateString);
+      // Excluir fechas bloqueadas (vacaciones, feriados, etc.)
+      const blocked = isDateBlocked(dateString, selectedProfessional?.id ?? null);
+
+      if (isWorkingDay && !blocked) availableDates.push(dateString);
     }
     return availableDates;
   })();
 
   const allSlots = useMemo(() => {
+<<<<<<< Updated upstream
     const slotStep = business?.slotDuration || 30;
 
     if (!selectedDate) {
@@ -362,11 +391,22 @@ export default function PublicBookingPage() {
           }
         }
         return fallbackSlots;
+=======
+    const buildFallbackSlots = () => {
+      const fallbackSlots: string[] = [];
+      for (let m = 9 * 60; m < 20 * 60; m += slotStep) {
+        fallbackSlots.push(toTime(m));
+>>>>>>> Stashed changes
       }
-      return [];
+      return fallbackSlots;
+    };
+
+    if (!selectedDate) {
+      return hasWorkingHours ? [] : buildFallbackSlots();
     }
 
     if (!hasWorkingHours) {
+<<<<<<< Updated upstream
       const fallbackSlots: string[] = [];
       for (let h = 9; h < 20; h++) {
         for (let m = 0; m < 60; m += slotStep) {
@@ -374,6 +414,9 @@ export default function PublicBookingPage() {
         }
       }
       return fallbackSlots;
+=======
+      return buildFallbackSlots();
+>>>>>>> Stashed changes
     }
 
     const dateObj = new Date(`${selectedDate}T12:00:00`);
@@ -416,6 +459,7 @@ export default function PublicBookingPage() {
     professionals,
     hasWorkingHours,
     serviceDuration,
+    slotStep,
     workingHours,
     business,
   ]);

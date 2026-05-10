@@ -39,24 +39,6 @@ export async function POST(
     let levelUp = false;
 
     if (booking.client_profile_id) {
-      // 3.1. Verificar si YA se otorgó XP para esta reserva (idempotencia)
-      const { data: existingXp } = await supabase
-        .from("xp_history")
-        .select("id")
-        .eq("booking_id", bookingId)
-        .maybeSingle();
-
-      if (existingXp) {
-        // Ya se completó antes — no otorgar XP de nuevo
-        return NextResponse.json({
-          success: true,
-          message: "Reserva ya estaba completada",
-          xpAwarded: 0,
-          levelUp: false,
-          newLevel: null,
-        });
-      }
-
       // Obtener el servicio para obtener xp_value
       let xpValue = 100; // Valor por defecto
       if (booking.service_id) {
@@ -135,29 +117,38 @@ export async function POST(
           }
         }
 
-        // Actualizar perfil
-        await supabase
-          .from("client_profiles")
-          .update({
-            total_xp: newTotalXp,
-            total_visits: newTotalVisits,
-            total_spent: newTotalSpent.toString(),
-            current_level: currentLevel,
-            level_name: levelName,
-            last_visit: new Date().toISOString(),
-          })
-          .eq("id", booking.client_profile_id);
+        // Verificar si ya se otorgó XP para esta reserva (idempotencia)
+        const { data: existingXp } = await supabase
+          .from("xp_history")
+          .select("id")
+          .eq("booking_id", bookingId)
+          .maybeSingle();
 
-        // Registrar en historial de XP
-        await supabase.from("xp_history").insert({
-          organization_id: booking.organization_id,
-          client_profile_id: booking.client_profile_id,
-          xp_amount: xpValue,
-          reason: `Servicio completado: ${serviceName}`,
-          booking_id: bookingId,
-        });
+        if (!existingXp) {
+          // Actualizar perfil (solo si es la primera vez que se completa)
+          await supabase
+            .from("client_profiles")
+            .update({
+              total_xp: newTotalXp,
+              total_visits: newTotalVisits,
+              total_spent: newTotalSpent.toString(),
+              current_level: currentLevel,
+              level_name: levelName,
+              last_visit: new Date().toISOString(),
+            })
+            .eq("id", booking.client_profile_id);
 
-        xpAwarded = xpValue;
+          // Registrar en historial de XP
+          await supabase.from("xp_history").insert({
+            organization_id: booking.organization_id,
+            client_profile_id: booking.client_profile_id,
+            xp_amount: xpValue,
+            reason: `Servicio completado: ${serviceName}`,
+            booking_id: bookingId,
+          });
+
+          xpAwarded = xpValue;
+        }
       }
     }
 

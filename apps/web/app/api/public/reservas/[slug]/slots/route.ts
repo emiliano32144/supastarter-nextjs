@@ -71,41 +71,37 @@ export async function GET(
       );
     }
 
-    // 2. Obtener blocked_slots para esta fecha
+    // Bloques parciales del día (start_time/end_time presentes)
+    // Los bloqueos de día completo (NULL) se manejan en el calendario, no aquí
     let blockedQuery = supabase
       .from("blocked_slots")
       .select("start_time, end_time")
       .eq("organization_id", organizationId)
-      .eq("date", date);
+      .eq("date", date)
+      .not("start_time", "is", null)
+      .not("end_time", "is", null);
 
     if (professionalId) {
-      blockedQuery = blockedQuery.or(`professional_id.eq.${professionalId},professional_id.is.null`);
+      blockedQuery = blockedQuery.or(
+        `professional_id.eq.${professionalId},professional_id.is.null`,
+      );
     } else {
       blockedQuery = blockedQuery.is("professional_id", null);
     }
 
-    const { data: blockedRows, error: blockedError } = await blockedQuery;
+    const { data: blockedRows } = await blockedQuery;
 
-    if (blockedError) {
-      console.error("Error fetching blocked slots:", blockedError);
-      return NextResponse.json(
-        { success: false, error: blockedError.message },
-        { status: 500 },
-      );
-    }
+    const bookingSlots = (rows || []).map((r) => ({
+      start_time: normalizeTime(r.start_time as string),
+      end_time: normalizeTime(r.end_time as string),
+    }));
 
-    const occupiedSlots = [
-      ...(rows || []).map((r) => ({
-        start_time: normalizeTime(r.start_time as string),
-        end_time: normalizeTime(r.end_time as string),
-        type: "booking" as const,
-      })),
-      ...(blockedRows || []).map((r) => ({
-        start_time: normalizeTime(r.start_time as string),
-        end_time: normalizeTime(r.end_time as string),
-        type: "blocked" as const,
-      })),
-    ];
+    const blockedTimeSlots = (blockedRows || []).map((r) => ({
+      start_time: normalizeTime(r.start_time as string),
+      end_time: normalizeTime(r.end_time as string),
+    }));
+
+    const occupiedSlots = [...bookingSlots, ...blockedTimeSlots];
 
     return NextResponse.json({ success: true, occupiedSlots });
   } catch (e) {

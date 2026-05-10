@@ -1,7 +1,6 @@
 -- ============================================
--- FIX QUIRURGICO v4.1 - Sistema de Barberia
+-- FIX QUIRURGICO v3 - Sistema de Barberia
 -- Idempotente: seguro re-ejecutar 100 veces
--- Incluye: RLS Policies (Seguridad Supabase)
 -- Verificado contra: 
 --   - migration.sql (tablas base: services, professionals, clients, working_hours, bookings)
 --   - migration-loyalty.sql (client_profiles, loyalty_levels, xp_history, earned_rewards, cut_photos)
@@ -43,6 +42,92 @@ CREATE TABLE IF NOT EXISTS clients (
 );
 
 CREATE INDEX IF NOT EXISTS idx_clients_org ON clients(organization_id);
+
+-- working_hours (tabla base - nueva estructura con open_time/close_time)
+-- Cubre tanto DB en blanco como DB con schema viejo (start_time/end_time)
+CREATE TABLE IF NOT EXISTS working_hours (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id TEXT NOT NULL,
+    professional_id UUID,
+    day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+    is_working BOOLEAN DEFAULT true,
+    open_time TIME,
+    close_time TIME,
+    break_start TIME,
+    break_end TIME,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(organization_id, professional_id, day_of_week)
+);
+
+CREATE INDEX IF NOT EXISTS idx_working_hours_org ON working_hours(organization_id);
+CREATE INDEX IF NOT EXISTS idx_working_hours_prof ON working_hours(professional_id);
+
+-- Si la tabla ya existia con el schema viejo (start_time/end_time), migrar columnas
+DO $$
+BEGIN
+    -- Agregar columnas nuevas si no existen
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'working_hours' AND column_name = 'open_time'
+    ) THEN
+        ALTER TABLE working_hours ADD COLUMN open_time TIME;
+        RAISE NOTICE 'Añadida: working_hours.open_time';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'working_hours' AND column_name = 'close_time'
+    ) THEN
+        ALTER TABLE working_hours ADD COLUMN close_time TIME;
+        RAISE NOTICE 'Añadida: working_hours.close_time';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'working_hours' AND column_name = 'break_start'
+    ) THEN
+        ALTER TABLE working_hours ADD COLUMN break_start TIME;
+        RAISE NOTICE 'Añadida: working_hours.break_start';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'working_hours' AND column_name = 'break_end'
+    ) THEN
+        ALTER TABLE working_hours ADD COLUMN break_end TIME;
+        RAISE NOTICE 'Añadida: working_hours.break_end';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'working_hours' AND column_name = 'is_working'
+    ) THEN
+        ALTER TABLE working_hours ADD COLUMN is_working BOOLEAN DEFAULT true;
+        RAISE NOTICE 'Añadida: working_hours.is_working';
+    END IF;
+
+    -- Si existen start_time/end_time con datos, copiarlos a open_time/close_time
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'working_hours' AND column_name = 'start_time'
+    ) THEN
+        UPDATE working_hours
+        SET open_time = start_time::TIME
+        WHERE open_time IS NULL AND start_time IS NOT NULL;
+        RAISE NOTICE 'Migrado: working_hours.start_time -> open_time';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'working_hours' AND column_name = 'end_time'
+    ) THEN
+        UPDATE working_hours
+        SET close_time = end_time::TIME
+        WHERE close_time IS NULL AND end_time IS NOT NULL;
+        RAISE NOTICE 'Migrado: working_hours.end_time -> close_time';
+    END IF;
+END $$;
 
 -- ============================================
 -- TABLAS DE FIDELIDAD (de migration-loyalty.sql)
@@ -128,6 +213,24 @@ DROP TRIGGER IF EXISTS trigger_style_gallery_updated_at ON style_gallery;
 CREATE TRIGGER trigger_style_gallery_updated_at
     BEFORE UPDATE ON style_gallery
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- blocked_slots (bloqueo de fechas/horarios por vacaciones, feriados, etc.)
+-- professional_id NULL = bloquea todos los profesionales
+-- start_time/end_time NULL = bloqueo de día completo
+CREATE TABLE IF NOT EXISTS blocked_slots (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id TEXT NOT NULL,
+    professional_id UUID,
+    date DATE NOT NULL,
+    start_time TIME,    -- NULL = bloqueo de día completo
+    end_time TIME,      -- NULL = bloqueo de día completo
+    reason TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+    -- Sin UNIQUE: se permiten múltiples franjas bloqueadas en el mismo día
+);
+
+CREATE INDEX IF NOT EXISTS idx_blocked_slots_org_date ON blocked_slots(organization_id, date);
+CREATE INDEX IF NOT EXISTS idx_blocked_slots_prof ON blocked_slots(professional_id, date);
 
 -- xp_history (VERIFICADA contra /api/reservas/[bookingId]/complete/route.ts)
 -- El codigo usa: organization_id, client_profile_id, xp_amount, reason, booking_id
@@ -248,125 +351,6 @@ END $$;
 -- Solo rellenar NULLs, NO machacar valores legitimos
 UPDATE services SET xp_value = 100 WHERE xp_value IS NULL;
 
--- 5. bookings - reschedule_count (tracking de reprogramaciones)
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'bookings' AND column_name = 'reschedule_count'
-    ) THEN
-        ALTER TABLE bookings ADD COLUMN reschedule_count INTEGER DEFAULT 0;
-        RAISE NOTICE 'Añadida: bookings.reschedule_count';
-    END IF;
-END $$;
-
--- 6. business_config - timezone (manejo de zonas horarias)
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'business_config' AND column_name = 'timezone'
-    ) THEN
-        ALTER TABLE business_config ADD COLUMN timezone TEXT DEFAULT 'Europe/Madrid';
-        RAISE NOTICE 'Añadida: business_config.timezone';
-    END IF;
-END $$;
-
-UPDATE business_config SET timezone = 'Europe/Madrid' WHERE timezone IS NULL;
-
--- ============================================
--- working_hours (GRANULAR)
--- ============================================
-
-CREATE TABLE IF NOT EXISTS working_hours (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    organization_id TEXT NOT NULL,
-    professional_id UUID,
-    day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
-    open_time TIME NOT NULL,
-    close_time TIME NOT NULL,
-    break_start TIME,
-    break_end TIME,
-    is_working BOOLEAN DEFAULT true,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_working_hours_org ON working_hours(organization_id);
-CREATE INDEX IF NOT EXISTS idx_working_hours_prof ON working_hours(organization_id, professional_id);
-
--- Migrar columnas viejas (start_time/end_time → open_time/close_time) si existen
-DO $$
-BEGIN
-    IF EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'working_hours' AND column_name = 'start_time'
-    ) THEN
-        BEGIN
-            ALTER TABLE working_hours RENAME COLUMN start_time TO open_time;
-            RAISE NOTICE 'Migrado: working_hours.start_time → open_time';
-        EXCEPTION WHEN OTHERS THEN
-            RAISE NOTICE 'start_time ya migrado: %', SQLERRM;
-        END;
-    END IF;
-    IF EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'working_hours' AND column_name = 'end_time'
-    ) THEN
-        BEGIN
-            ALTER TABLE working_hours RENAME COLUMN end_time TO close_time;
-            RAISE NOTICE 'Migrado: working_hours.end_time → close_time';
-        EXCEPTION WHEN OTHERS THEN
-            RAISE NOTICE 'end_time ya migrado: %', SQLERRM;
-        END;
-    END IF;
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'working_hours' AND column_name = 'break_start'
-    ) THEN
-        ALTER TABLE working_hours ADD COLUMN break_start TIME;
-        RAISE NOTICE 'Añadida: working_hours.break_start';
-    END IF;
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'working_hours' AND column_name = 'break_end'
-    ) THEN
-        ALTER TABLE working_hours ADD COLUMN break_end TIME;
-        RAISE NOTICE 'Añadida: working_hours.break_end';
-    END IF;
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'working_hours' AND column_name = 'is_working'
-    ) THEN
-        ALTER TABLE working_hours ADD COLUMN is_working BOOLEAN DEFAULT true;
-        RAISE NOTICE 'Añadida: working_hours.is_working';
-    END IF;
-END $$;
-
--- ============================================
--- blocked_slots (feriados, vacaciones, descansos)
--- ============================================
-
-CREATE TABLE IF NOT EXISTS blocked_slots (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    organization_id TEXT NOT NULL,
-    professional_id UUID,
-    date DATE NOT NULL,
-    start_time TIME,
-    end_time TIME,
-    reason TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_blocked_slots_org ON blocked_slots(organization_id, date);
-CREATE INDEX IF NOT EXISTS idx_blocked_slots_prof ON blocked_slots(organization_id, professional_id, date);
-
-DROP TRIGGER IF EXISTS trigger_blocked_slots_updated_at ON blocked_slots;
-CREATE TRIGGER trigger_blocked_slots_updated_at
-    BEFORE UPDATE ON blocked_slots
-    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 -- ============================================
 -- TRIGGERS updated_at PARA TABLAS EXISTENTES
 -- ============================================
@@ -416,111 +400,28 @@ BEGIN
     IF to_regclass('clients') IS NOT NULL THEN
         ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
     END IF;
+    IF to_regclass('blocked_slots') IS NOT NULL THEN
+        ALTER TABLE blocked_slots ENABLE ROW LEVEL SECURITY;
+    END IF;
 END $$;
-
--- ============================================
--- RLS POLICIES (Seguridad Supabase) - v4.2
--- ============================================
--- NOTA: FILO accede a Supabase SOLO desde el backend (Next.js API routes)
--- usando SUPABASE_SERVICE_ROLE_KEY, que bypass RLS. Estas policies son
--- una capa de defensa adicional si alguien obtiene la URL de Supabase.
-
--- Habilitar RLS en todas las tablas
-DO $$
-BEGIN
-    ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE services ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE professionals ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE working_hours ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE business_config ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE client_profiles ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE style_gallery ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE loyalty_levels ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE earned_rewards ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE xp_history ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE blocked_slots ENABLE ROW LEVEL SECURITY;
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'RLS ya habilitado o tabla no existe: %', SQLERRM;
-END $$;
-
--- Service role tiene acceso total (backend Next.js)
--- DROP + CREATE en vez de IF NOT EXISTS (PostgreSQL no soporta IF NOT EXISTS en CREATE POLICY)
-DROP POLICY IF EXISTS "Service role full access bookings" ON bookings;
-CREATE POLICY "Service role full access bookings" ON bookings FOR ALL TO service_role USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Service role full access services" ON services;
-CREATE POLICY "Service role full access services" ON services FOR ALL TO service_role USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Service role full access professionals" ON professionals;
-CREATE POLICY "Service role full access professionals" ON professionals FOR ALL TO service_role USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Service role full access working_hours" ON working_hours;
-CREATE POLICY "Service role full access working_hours" ON working_hours FOR ALL TO service_role USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Service role full access clients" ON clients;
-CREATE POLICY "Service role full access clients" ON clients FOR ALL TO service_role USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Service role full access business_config" ON business_config;
-CREATE POLICY "Service role full access business_config" ON business_config FOR ALL TO service_role USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Service role full access client_profiles" ON client_profiles;
-CREATE POLICY "Service role full access client_profiles" ON client_profiles FOR ALL TO service_role USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Service role full access style_gallery" ON style_gallery;
-CREATE POLICY "Service role full access style_gallery" ON style_gallery FOR ALL TO service_role USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Service role full access loyalty_levels" ON loyalty_levels;
-CREATE POLICY "Service role full access loyalty_levels" ON loyalty_levels FOR ALL TO service_role USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Service role full access earned_rewards" ON earned_rewards;
-CREATE POLICY "Service role full access earned_rewards" ON earned_rewards FOR ALL TO service_role USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Service role full access xp_history" ON xp_history;
-CREATE POLICY "Service role full access xp_history" ON xp_history FOR ALL TO service_role USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Service role full access blocked_slots" ON blocked_slots;
-CREATE POLICY "Service role full access blocked_slots" ON blocked_slots FOR ALL TO service_role USING (true) WITH CHECK (true);
-
--- Lectura pública para APIs públicas (sin auth)
-DROP POLICY IF EXISTS "Public read business_config" ON business_config;
-CREATE POLICY "Public read business_config" ON business_config FOR SELECT TO anon, authenticated USING (true);
-
-DROP POLICY IF EXISTS "Public read services active" ON services;
-CREATE POLICY "Public read services active" ON services FOR SELECT TO anon, authenticated USING (is_active = true);
-
-DROP POLICY IF EXISTS "Public read professionals active" ON professionals;
-CREATE POLICY "Public read professionals active" ON professionals FOR SELECT TO anon, authenticated USING (is_active = true);
-
-DROP POLICY IF EXISTS "Public read working_hours" ON working_hours;
-CREATE POLICY "Public read working_hours" ON working_hours FOR SELECT TO anon, authenticated USING (true);
-
-DROP POLICY IF EXISTS "Public read loyalty_levels" ON loyalty_levels;
-CREATE POLICY "Public read loyalty_levels" ON loyalty_levels FOR SELECT TO anon, authenticated USING (true);
-
-DROP POLICY IF EXISTS "Public read style_gallery" ON style_gallery;
-CREATE POLICY "Public read style_gallery" ON style_gallery FOR SELECT TO anon, authenticated USING (true);
-
-DROP POLICY IF EXISTS "Public read blocked_slots" ON blocked_slots;
-CREATE POLICY "Public read blocked_slots" ON blocked_slots FOR SELECT TO anon, authenticated USING (true);
-
--- Bookings: solo lectura de reservas públicas (para verificar disponibilidad de slots)
-DROP POLICY IF EXISTS "Public read bookings for slots" ON bookings;
-CREATE POLICY "Public read bookings for slots" ON bookings FOR SELECT TO anon, authenticated USING (status IN ('pending', 'confirmed'));
 
 -- ============================================
 -- RESUMEN
 -- ============================================
 
-SELECT 
+SELECT
     'FIX COMPLETADO v4' as status,
     NOW() as executed_at,
     (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'bookings') as bookings_columns,
     (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'services') as services_columns,
+    CASE WHEN EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'working_hours' AND column_name = 'open_time'
+    ) THEN 'OK' ELSE 'FALTA open_time' END as working_hours_schema,
     CASE WHEN to_regclass('style_gallery') IS NOT NULL THEN 'OK' ELSE 'FALTA' END as style_gallery,
     CASE WHEN to_regclass('xp_history') IS NOT NULL THEN 'OK' ELSE 'FALTA' END as xp_history,
     CASE WHEN to_regclass('earned_rewards') IS NOT NULL THEN 'OK' ELSE 'FALTA' END as earned_rewards,
     CASE WHEN to_regclass('cut_photos') IS NOT NULL THEN 'OK' ELSE 'FALTA' END as cut_photos,
     CASE WHEN to_regclass('client_profiles') IS NOT NULL THEN 'OK' ELSE 'FALTA' END as client_profiles,
     CASE WHEN to_regclass('clients') IS NOT NULL THEN 'OK' ELSE 'FALTA' END as clients,
-    CASE WHEN to_regclass('working_hours') IS NOT NULL THEN 'OK' ELSE 'FALTA' END as working_hours;
+    CASE WHEN to_regclass('blocked_slots') IS NOT NULL THEN 'OK' ELSE 'FALTA' END as blocked_slots;
