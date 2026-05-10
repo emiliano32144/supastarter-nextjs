@@ -309,6 +309,30 @@ BEGIN
 END $$;
 
 -- ============================================
+-- blocked_slots (feriados, vacaciones, descansos)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS blocked_slots (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id TEXT NOT NULL,
+    professional_id UUID,
+    date DATE NOT NULL,
+    start_time TIME,
+    end_time TIME,
+    reason TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_blocked_slots_org ON blocked_slots(organization_id, date);
+CREATE INDEX IF NOT EXISTS idx_blocked_slots_prof ON blocked_slots(organization_id, professional_id, date);
+
+DROP TRIGGER IF EXISTS trigger_blocked_slots_updated_at ON blocked_slots;
+CREATE TRIGGER trigger_blocked_slots_updated_at
+    BEFORE UPDATE ON blocked_slots
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ============================================
 -- TRIGGERS updated_at PARA TABLAS EXISTENTES
 -- ============================================
 

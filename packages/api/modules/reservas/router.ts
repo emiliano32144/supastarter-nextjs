@@ -43,4 +43,9 @@ export const reservasRouter = {
 		update: procedures.updateClients,
 		delete: procedures.deleteClients,
 	},
+	blocked_slots: {
+		list: procedures.listBlockedSlots,
+		create: procedures.createBlockedSlot,
+		delete: procedures.deleteBlockedSlot,
+	},
 };

@@ -71,10 +71,41 @@ export async function GET(
       );
     }
 
-    const occupiedSlots = (rows || []).map((r) => ({
-      start_time: normalizeTime(r.start_time as string),
-      end_time: normalizeTime(r.end_time as string),
-    }));
+    // 2. Obtener blocked_slots para esta fecha
+    let blockedQuery = supabase
+      .from("blocked_slots")
+      .select("start_time, end_time")
+      .eq("organization_id", organizationId)
+      .eq("date", date);
+
+    if (professionalId) {
+      blockedQuery = blockedQuery.or(`professional_id.eq.${professionalId},professional_id.is.null`);
+    } else {
+      blockedQuery = blockedQuery.is("professional_id", null);
+    }
+
+    const { data: blockedRows, error: blockedError } = await blockedQuery;
+
+    if (blockedError) {
+      console.error("Error fetching blocked slots:", blockedError);
+      return NextResponse.json(
+        { success: false, error: blockedError.message },
+        { status: 500 },
+      );
+    }
+
+    const occupiedSlots = [
+      ...(rows || []).map((r) => ({
+        start_time: normalizeTime(r.start_time as string),
+        end_time: normalizeTime(r.end_time as string),
+        type: "booking" as const,
+      })),
+      ...(blockedRows || []).map((r) => ({
+        start_time: normalizeTime(r.start_time as string),
+        end_time: normalizeTime(r.end_time as string),
+        type: "blocked" as const,
+      })),
+    ];
 
     return NextResponse.json({ success: true, occupiedSlots });
   } catch (e) {

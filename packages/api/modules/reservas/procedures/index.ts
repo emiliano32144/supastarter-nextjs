@@ -525,6 +525,99 @@ export const deleteBookings = protectedProcedure
     });
 
 // ═══════════════════════════════════════════════════════════════
+// BLOCKED SLOTS CRUD (feriados, vacaciones, descansos)
+// ═══════════════════════════════════════════════════════════════
+
+export const listBlockedSlots = protectedProcedure
+    .route({ method: "GET", path: "/reservas/blocked-slots" })
+    .input(z.object({
+        page: z.number().int().min(1).default(1),
+        limit: z.number().int().min(1).max(100).default(50),
+        date_from: z.string().optional(),
+        date_to: z.string().optional(),
+    }).default({}))
+    .handler(async ({ input, context }) => {
+        const organizationId = context.session?.activeOrganizationId;
+        if (!organizationId) throw new Error("No active organization");
+
+        const from = (input.page - 1) * input.limit;
+
+        let query = supabase
+            .from("blocked_slots")
+            .select("*", { count: "exact" })
+            .eq("organization_id", organizationId)
+            .order("date", { ascending: true })
+            .range(from, from + input.limit - 1);
+
+        if (input.date_from) query = query.gte("date", input.date_from);
+        if (input.date_to) query = query.lte("date", input.date_to);
+
+        const { data, error, count } = await query;
+        if (error) throw new Error(error.message);
+
+        return {
+            data: data || [],
+            total: count || 0,
+            page: input.page,
+            limit: input.limit,
+            totalPages: count ? Math.ceil(count / input.limit) : 1,
+        };
+    });
+
+export const createBlockedSlot = protectedProcedure
+    .route({ method: "POST", path: "/reservas/blocked-slots" })
+    .input(z.object({
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato YYYY-MM-DD"),
+        start_time: z.string().regex(/^\d{2}:\d{2}$/, "Formato HH:MM").nullable().optional(),
+        end_time: z.string().regex(/^\d{2}:\d{2}$/, "Formato HH:MM").nullable().optional(),
+        reason: z.string().min(1, "Motivo requerido"),
+        professional_id: z.string().uuid().nullable().optional(),
+    }))
+    .handler(async ({ input, context }) => {
+        const organizationId = context.session?.activeOrganizationId;
+        if (!organizationId) throw new Error("No active organization");
+
+        const { data, error } = await supabase
+            .from("blocked_slots")
+            .insert({
+                organization_id: organizationId,
+                professional_id: input.professional_id || null,
+                date: input.date,
+                start_time: input.start_time || null,
+                end_time: input.end_time || null,
+                reason: input.reason,
+            })
+            .select()
+            .single();
+
+        if (error) {
+            console.error("Error creating blocked slot:", error);
+            throw new Error(error.message);
+        }
+        return data;
+    });
+
+export const deleteBlockedSlot = protectedProcedure
+    .route({ method: "DELETE", path: "/reservas/blocked-slots/:id" })
+    .input(z.object({ id: z.string().uuid() }))
+    .handler(async ({ input, context }) => {
+        const organizationId = context.session?.activeOrganizationId;
+        if (!organizationId) throw new Error("No active organization");
+
+        const { error } = await supabase
+            .from("blocked_slots")
+            .delete()
+            .eq("id", input.id)
+            .eq("organization_id", organizationId);
+
+        if (error) {
+            console.error("Error deleting blocked slot:", error);
+            throw new Error(error.message);
+        }
+        return { success: true };
+    });
+
+// ═══════════════════════════════════════════════════════════════
 // SERVICES CRUD
 // ═══════════════════════════════════════════════════════════════
 

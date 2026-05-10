@@ -4,6 +4,9 @@ import {
 	useCreateWorking_hour,
 	useUpdateWorking_hour,
 	useWorkingHours,
+	useBlockedSlots,
+	useCreateBlockedSlot,
+	useDeleteBlockedSlot,
 } from "@/hooks/use-reservas";
 import type { WorkingHours } from "@/types/reservas";
 import { useActiveOrganization } from "@saas/organizations/hooks/use-active-organization";
@@ -745,6 +748,9 @@ export default function ConfiguracionPage() {
           </div>
         </div>
 
+        {/* Bloquear días (vacaciones, feriados, descansos) */}
+        <BlockedSlotsSection />
+
         {/* Configuración de Reservas */}
         <div className="bg-white rounded-xl shadow-sm border p-6">
           <h2 className="text-lg font-semibold mb-4">📅 Configuración de Reservas</h2>
@@ -806,6 +812,162 @@ export default function ConfiguracionPage() {
           {saving ? "Guardando..." : "💾 Guardar configuración"}
         </button>
       </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SUB-COMPONENTE: Bloquear días (vacaciones, feriados, descansos)
+// ═══════════════════════════════════════════════════════════════
+
+function BlockedSlotsSection() {
+  const [date, setDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [reason, setReason] = useState("");
+  const [allDay, setAllDay] = useState(true);
+
+  const { data: blockedData, isLoading } = useBlockedSlots({ limit: 100 });
+  const createBlocked = useCreateBlockedSlot();
+  const deleteBlocked = useDeleteBlockedSlot();
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!date || !reason) return;
+
+    await createBlocked.mutateAsync({
+      date,
+      start_time: allDay ? null : startTime || null,
+      end_time: allDay ? null : endTime || null,
+      reason,
+    });
+
+    setDate("");
+    setStartTime("");
+    setEndTime("");
+    setReason("");
+    setAllDay(true);
+  };
+
+  const blockedList = blockedData?.data || [];
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border p-6">
+      <h2 className="text-lg font-semibold mb-4">🚫 Bloquear días (vacaciones / feriados / descansos)</h2>
+
+      <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Fecha *</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            required
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Motivo *</label>
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Ej: Vacaciones de verano"
+            required
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div className="flex items-end">
+          <button
+            type="submit"
+            disabled={createBlocked.isPending}
+            className="w-full px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-50 font-medium"
+          >
+            {createBlocked.isPending ? "Agregando..." : "+ Bloquear"}
+          </button>
+        </div>
+      </form>
+
+      <div className="flex items-center gap-2 mb-4">
+        <input
+          type="checkbox"
+          id="allDay"
+          checked={allDay}
+          onChange={(e) => setAllDay(e.target.checked)}
+          className="w-4 h-4"
+        />
+        <label htmlFor="allDay" className="text-sm text-gray-600">Todo el día (sin horarios específicos)</label>
+      </div>
+
+      {!allDay && (
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Desde</label>
+            <input
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Hasta</label>
+            <input
+              type="time"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+      )}
+
+      {isLoading && <p className="text-gray-500">Cargando...</p>}
+
+      {blockedList.length === 0 && !isLoading && (
+        <p className="text-gray-500 text-sm">No hay días bloqueados. Agregá vacaciones o feriados para que los clientes no puedan reservar.</p>
+      )}
+
+      {blockedList.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="text-left py-2 px-3 font-medium text-gray-600">Fecha</th>
+                <th className="text-left py-2 px-3 font-medium text-gray-600">Horario</th>
+                <th className="text-left py-2 px-3 font-medium text-gray-600">Motivo</th>
+                <th className="text-right py-2 px-3 font-medium text-gray-600">Acción</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {blockedList.map((slot: any) => (
+                <tr key={slot.id}>
+                  <td className="py-2 px-3">{slot.date}</td>
+                  <td className="py-2 px-3">
+                    {slot.start_time && slot.end_time
+                      ? `${slot.start_time} - ${slot.end_time}`
+                      : "Todo el día"}
+                  </td>
+                  <td className="py-2 px-3">{slot.reason}</td>
+                  <td className="py-2 px-3 text-right">
+                    <button
+                      onClick={() => {
+                        if (confirm(`¿Eliminar bloqueo del ${slot.date}?`)) {
+                          deleteBlocked.mutateAsync(slot.id);
+                        }
+                      }}
+                      className="text-red-600 hover:text-red-800 text-sm"
+                      disabled={deleteBlocked.isPending}
+                    >
+                      Eliminar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
