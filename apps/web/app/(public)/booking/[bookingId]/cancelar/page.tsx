@@ -14,7 +14,7 @@ export default function CancelarPage() {
     if (!email) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/public/reservas/${bookingId}/cancel`, {
+      const res = await fetch(`/api/public/booking/${bookingId}/cancel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ client_email: email }),
