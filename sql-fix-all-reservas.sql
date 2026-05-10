@@ -1,6 +1,7 @@
 -- ============================================
--- FIX QUIRURGICO v4 - Sistema de Barberia
+-- FIX QUIRURGICO v4.1 - Sistema de Barberia
 -- Idempotente: seguro re-ejecutar 100 veces
+-- Incluye: RLS Policies (Seguridad Supabase)
 -- Verificado contra: 
 --   - migration.sql (tablas base: services, professionals, clients, working_hours, bookings)
 --   - migration-loyalty.sql (client_profiles, loyalty_levels, xp_history, earned_rewards, cut_photos)
@@ -408,6 +409,58 @@ BEGIN
         ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
     END IF;
 END $$;
+
+-- ============================================
+-- RLS POLICIES (Seguridad Supabase) - v4.1
+-- ============================================
+-- NOTA: FILO accede a Supabase SOLO desde el backend (Next.js API routes)
+-- usando SUPABASE_SERVICE_ROLE_KEY, que bypass RLS. Estas policies son
+-- una capa de defensa adicional si alguien obtiene la URL de Supabase.
+
+-- Habilitar RLS en todas las tablas
+DO $$
+BEGIN
+    ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE services ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE professionals ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE working_hours ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE business_config ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE client_profiles ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE style_gallery ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE loyalty_levels ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE earned_rewards ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE xp_history ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE blocked_slots ENABLE ROW LEVEL SECURITY;
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'RLS ya habilitado o tabla no existe: %', SQLERRM;
+END $$;
+
+-- Service role tiene acceso total (backend Next.js)
+CREATE POLICY IF NOT EXISTS "Service role full access" ON bookings FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "Service role full access" ON services FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "Service role full access" ON professionals FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "Service role full access" ON working_hours FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "Service role full access" ON clients FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "Service role full access" ON business_config FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "Service role full access" ON client_profiles FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "Service role full access" ON style_gallery FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "Service role full access" ON loyalty_levels FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "Service role full access" ON earned_rewards FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "Service role full access" ON xp_history FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "Service role full access" ON blocked_slots FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+-- Lectura pública para APIs públicas (sin auth)
+CREATE POLICY IF NOT EXISTS "Public read business_config" ON business_config FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY IF NOT EXISTS "Public read services active" ON services FOR SELECT TO anon, authenticated USING (is_active = true);
+CREATE POLICY IF NOT EXISTS "Public read professionals active" ON professionals FOR SELECT TO anon, authenticated USING (is_active = true);
+CREATE POLICY IF NOT EXISTS "Public read working_hours" ON working_hours FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY IF NOT EXISTS "Public read loyalty_levels" ON loyalty_levels FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY IF NOT EXISTS "Public read style_gallery" ON style_gallery FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY IF NOT EXISTS "Public read blocked_slots" ON blocked_slots FOR SELECT TO anon, authenticated USING (true);
+
+-- Bookings: solo lectura de reservas públicas (para verificar disponibilidad de slots)
+CREATE POLICY IF NOT EXISTS "Public read bookings for slots" ON bookings FOR SELECT TO anon, authenticated USING (status IN ('pending', 'confirmed'));
 
 -- ============================================
 -- RESUMEN
