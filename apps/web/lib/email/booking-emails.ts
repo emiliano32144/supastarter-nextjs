@@ -1,5 +1,25 @@
 import { Resend } from 'resend';
 
+// Helper: formatear fecha + hora en timezone del negocio
+function formatDateTimeInTz(dateStr: string, timeStr: string, tz: string = 'Europe/Madrid') {
+  try {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const [hour, minute] = (timeStr || '00:00').split(':').map(Number);
+    const d = new Date(Date.UTC(year, month - 1, day, hour, minute));
+    return new Intl.DateTimeFormat('es-ES', {
+      timeZone: tz,
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(d);
+  } catch {
+    return `${dateStr} ${timeStr}`;
+  }
+}
+
 // Inicializar Resend solo cuando se necesite (evita errores durante build si no hay API key)
 const getResend = () => {
   const apiKey = process.env.RESEND_API_KEY;
@@ -21,6 +41,7 @@ export type BookingEmailData = {
   businessPhone?: string;
   businessAddress?: string;
   bookingId?: string;
+  timezone?: string;
 };
 
 type BookingNotificationEmailData = BookingEmailData & {
@@ -39,14 +60,10 @@ export async function sendBookingConfirmationEmail(data: BookingEmailData) {
     businessName,
     businessPhone,
     businessAddress,
+    timezone = 'Europe/Madrid',
   } = data;
 
-  const formattedDate = new Date(date).toLocaleDateString('es-ES', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  const formattedDate = formatDateTimeInTz(date, time, timezone);
 
   try {
     const resend = getResend();
@@ -167,14 +184,10 @@ export async function sendBookingReminderEmail(data: BookingEmailData) {
     businessName,
     businessPhone,
     businessAddress,
+    timezone = 'Europe/Madrid',
   } = data;
 
-  const formattedDate = new Date(date).toLocaleDateString('es-ES', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  const formattedDate = formatDateTimeInTz(date, time, timezone);
 
   try {
     const resend = getResend();
@@ -292,14 +305,10 @@ export async function sendBookingNotificationEmail(
     businessPhone,
     businessAddress,
     businessEmail,
+    timezone = 'Europe/Madrid',
   } = data;
 
-  const formattedDate = new Date(date).toLocaleDateString('es-ES', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  const formattedDate = formatDateTimeInTz(date, time, timezone);
 
   try {
     const resend = getResend();
@@ -405,14 +414,10 @@ export async function sendBookingCancellationEmail(data: BookingEmailData) {
     date,
     time,
     businessName,
+    timezone = 'Europe/Madrid',
   } = data;
 
-  const formattedDate = new Date(date).toLocaleDateString("es-ES", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const formattedDate = formatDateTimeInTz(date, time, timezone);
 
   try {
     const resend = getResend();

@@ -93,6 +93,15 @@ export async function POST(request: NextRequest) {
 
     console.log(`📧 Encontradas ${bookings.length} reservas para enviar recordatorio`);
 
+    // Obtener todas las timezones de los negocios
+    const { data: businessConfigs } = await supabase
+      .from("business_config")
+      .select("organization_id, timezone");
+
+    const timezoneMap = new Map(
+      (businessConfigs || []).map((c) => [c.organization_id, c.timezone || "Europe/Madrid"])
+    );
+
     let sentCount = 0;
     let errorCount = 0;
     const errors: string[] = [];
@@ -100,6 +109,21 @@ export async function POST(request: NextRequest) {
     // Procesar cada reserva
     for (const booking of bookings) {
       try {
+        const tz = timezoneMap.get(booking.organization_id) || "Europe/Madrid";
+
+        // Calcular "mañana" en la timezone del negocio
+        const nowInTz = new Date(new Date().toLocaleString("en-US", { timeZone: tz }));
+        const tomorrowInTz = new Date(nowInTz);
+        tomorrowInTz.setDate(tomorrowInTz.getDate() + 1);
+        tomorrowInTz.setHours(0, 0, 0, 0);
+
+        const tomorrowStr = tomorrowInTz.toISOString().split("T")[0];
+
+        // Solo enviar si la reserva es "mañana" en la timezone del negocio
+        if (booking.date !== tomorrowStr) {
+          continue;
+        }
+
         // Obtener información del negocio
         const { data: businessConfig, error: configError } = await supabase
           .from("business_config")
@@ -160,6 +184,7 @@ export async function POST(request: NextRequest) {
           businessName: businessConfig.business_name || "Negocio",
           businessPhone: businessConfig.phone || undefined,
           businessAddress: businessConfig.address ? `${businessConfig.address}${businessConfig.city ? `, ${businessConfig.city}` : ''}` : undefined,
+          timezone: businessConfig.timezone || 'Europe/Madrid',
         });
 
         if (emailResult.success) {

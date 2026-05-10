@@ -26,12 +26,14 @@ type BusinessConfig = {
   email: string;
   address: string;
   city: string;
+  timezone: string;
   opening_time: string;
   closing_time: string;
   working_days: string[];
   instagram_url: string;
   facebook_url: string;
   website_url: string;
+  timezone: string;
   min_advance_hours: number;
   max_advance_days: number;
   slot_duration: number;
@@ -54,6 +56,7 @@ const defaultConfig: BusinessConfig = {
   instagram_url: "",
   facebook_url: "",
   website_url: "",
+  timezone: "Europe/Madrid",
   min_advance_hours: 2,
   max_advance_days: 30,
   slot_duration: 30,

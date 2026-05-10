@@ -247,6 +247,20 @@ END $$;
 -- Solo rellenar NULLs, NO machacar valores legitimos
 UPDATE services SET xp_value = 100 WHERE xp_value IS NULL;
 
+-- 5. business_config - timezone (manejo de zonas horarias)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'business_config' AND column_name = 'timezone'
+    ) THEN
+        ALTER TABLE business_config ADD COLUMN timezone TEXT DEFAULT 'Europe/Madrid';
+        RAISE NOTICE 'Añadida: business_config.timezone';
+    END IF;
+END $$;
+
+UPDATE business_config SET timezone = 'Europe/Madrid' WHERE timezone IS NULL;
+
 -- ============================================
 -- working_hours (GRANULAR)
 -- ============================================
