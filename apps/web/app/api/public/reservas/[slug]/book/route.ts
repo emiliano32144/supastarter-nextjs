@@ -141,12 +141,45 @@ export async function POST(
       }
     }
 
+    // Buscar o crear client_profile (para fidelización)
+    let client_profile_id = null;
+    const { data: existingProfile } = await supabase
+      .from("client_profiles")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .eq("email", client_email)
+      .single();
+
+    if (existingProfile) {
+      client_profile_id = existingProfile.id;
+    } else {
+      const { data: newProfile } = await supabase
+        .from("client_profiles")
+        .insert({
+          organization_id: organizationId,
+          name: client_name,
+          email: client_email,
+          phone: client_phone,
+          total_xp: 0,
+          current_level_id: null,
+          total_visits: 0,
+          last_visit: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+
+      if (newProfile) {
+        client_profile_id = newProfile.id;
+      }
+    }
+
     // Crear la reserva
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .insert({
         organization_id: organizationId,
         client_id,
+        client_profile_id,
         professional_id: professional_id || null,
         service_id,
         client_name,

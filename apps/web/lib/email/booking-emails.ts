@@ -143,6 +143,12 @@ export async function sendBookingConfirmationEmail(data: BookingEmailData) {
                   ✗ Cancelar reserva
                 </a>
               </div>
+              <div style="margin: 15px 0; text-align: center;">
+                <a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/fidelidad/${bookingId}?email=${encodeURIComponent(clientEmail)}" 
+                   style="display: inline-block; padding: 10px 20px; background: #D4AF37; color: #1a1a1a; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 500;">
+                  🎖️ Ver mis puntos de fidelización
+                </a>
+              </div>
               <p style="color: #666; font-size: 13px; margin: 25px 0 0 0; text-align: center;">
                 Si necesitas cancelar o modificar tu cita, contáctanos con al menos 24h de antelación.
               </p>
