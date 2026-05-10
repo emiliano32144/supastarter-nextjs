@@ -102,107 +102,74 @@ export default function FiloLandingPage() {
 
 				{/* Precios */}
 				<section id="precios" className="py-24 md:py-32 px-4 bg-[#0a0a0a]">
-					<div className="max-w-7xl mx-auto">
-						<h2 className="text-4xl md:text-5xl font-light tracking-tight text-center mb-16">
+					<div className="max-w-5xl mx-auto">
+						<h2 className="text-4xl md:text-5xl font-light tracking-tight text-center mb-4">
 							Planes que se adaptan a ti
 						</h2>
-						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-							{/* Básico */}
+						<p className="text-white/50 text-center mb-16 max-w-2xl mx-auto">
+							Suscripción fija mensual. Sin comisiones por reserva. Cancela cuando quieras.
+						</p>
+
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+							{/* Plan Normal */}
 							<div className="bg-white/5 border border-white/10 rounded-2xl p-8">
-								<h3 className="text-2xl font-light mb-2">Básico</h3>
-								<div className="text-4xl font-light text-[#D4AF37] mb-4">
-									€19<span className="text-lg text-white/60 font-normal">/mes</span>
+								<h3 className="text-2xl font-light mb-2">Plan Normal</h3>
+								<p className="text-white/50 text-sm mb-4">
+									Para barberos y peluqueros independientes o con 1-2 empleados.
+								</p>
+								<div className="text-5xl font-light text-[#D4AF37] mb-6">
+									€49,99<span className="text-lg text-white/60 font-normal">/mes</span>
 								</div>
 								<ul className="space-y-3 text-white/60 mb-8">
-									<li>• 2 profesionales</li>
-									<li>• Recordatorios por Gmail</li>
-									<li>• Perfiles de clientes</li>
-									<li>• Panel de control</li>
+									<li className="flex items-center gap-2"><span className="text-[#D4AF37]">✓</span> Agenda online ilimitada</li>
+									<li className="flex items-center gap-2"><span className="text-[#D4AF37]">✓</span> Recordatorios automáticos</li>
+									<li className="flex items-center gap-2"><span className="text-[#D4AF37]">✓</span> Fidelización XP (5 niveles)</li>
+									<li className="flex items-center gap-2"><span className="text-[#D4AF37]">✓</span> Cancelación y reprogramación</li>
+									<li className="flex items-center gap-2"><span className="text-[#D4AF37]">✓</span> Hasta 3 profesionales</li>
+									<li className="flex items-center gap-2"><span className="text-[#D4AF37]">✓</span> Soporte por email</li>
 								</ul>
-							<Link
-								href={`/${locale}/filo/empezar?plan=basico`}
-								className="block w-full text-center px-6 py-3 bg-white/10 border border-white/20 rounded-lg hover:border-[#D4AF37] hover:text-[#D4AF37] transition-all duration-300"
-							>
-								Empezar
-							</Link>
+								<Link
+									href="/pricing"
+									className="block w-full text-center px-6 py-4 bg-white/10 border border-white/20 rounded-xl hover:border-[#D4AF37] hover:text-[#D4AF37] transition-all duration-300 font-medium"
+								>
+									Elegir Plan Normal
+								</Link>
+							</div>
+
+							{/* Plan Pro - Featured */}
+							<div className="bg-white/5 border border-[#D4AF37]/50 rounded-2xl p-8 relative">
+								<div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#D4AF37] text-black text-sm font-medium rounded-full">
+									MÁS POPULAR
+								</div>
+								<h3 className="text-2xl font-light mb-2">Plan Pro</h3>
+								<p className="text-white/50 text-sm mb-4">
+									Para salones con 3+ empleados o múltiples sedes.
+								</p>
+								<div className="text-5xl font-light text-[#D4AF37] mb-6">
+									€95<span className="text-lg text-white/60 font-normal">/mes</span>
+								</div>
+								<ul className="space-y-3 text-white/60 mb-8">
+									<li className="flex items-center gap-2"><span className="text-[#D4AF37]">✓</span> Todo lo del Plan Normal</li>
+									<li className="flex items-center gap-2"><span className="text-[#D4AF37]">✓</span> Profesionales ilimitados</li>
+									<li className="flex items-center gap-2"><span className="text-[#D4AF37]">✓</span> Múltiples sedes / organizaciones</li>
+									<li className="flex items-center gap-2"><span className="text-[#D4AF37]">✓</span> Personalización avanzada de marca</li>
+									<li className="flex items-center gap-2"><span className="text-[#D4AF37]">✓</span> Soporte prioritario</li>
+								</ul>
+								<Link
+									href="/pricing"
+									className="block w-full text-center px-6 py-4 bg-[#D4AF37] text-black font-medium rounded-xl hover:bg-[#D4AF37]/90 transition-all duration-300"
+								>
+									Elegir Plan Pro
+								</Link>
+							</div>
 						</div>
 
-						{/* Pro - Featured */}
-						<div className="bg-white/5 border border-amber-500/50 rounded-2xl p-8 relative">
-							<div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#D4AF37] text-black text-sm font-medium rounded-full">
-								RECOMENDADO
-							</div>
-							<h3 className="text-2xl font-light mb-2">Pro</h3>
-							<div className="text-4xl font-light text-[#D4AF37] mb-4">
-								€39<span className="text-lg text-white/60 font-normal">/mes</span>
-							</div>
-							<ul className="space-y-3 text-white/60 mb-8">
-								<li>• Profesionales ilimitados</li>
-								<li>• Recordatorios por Gmail</li>
-								<li>• Personalización total</li>
-								<li>• Panel de control avanzado</li>
-							</ul>
-							<Link
-								href={`/${locale}/filo/empezar?plan=pro`}
-								className="block w-full text-center px-6 py-3 bg-[#D4AF37] text-black font-medium rounded-lg hover:bg-[#D4AF37]/90 transition-all duration-300"
-							>
-								Empezar
-							</Link>
-						</div>
-
-						{/* Oferta Lanzamiento */}
-						<div className="bg-white/5 border border-white/10 rounded-2xl p-8">
-							<h3 className="text-2xl font-light mb-2">Oferta Lanzamiento</h3>
-							<div className="text-4xl font-light text-[#D4AF37] mb-4">
-								€1<span className="text-lg text-white/60 font-normal">/60 días</span>
-							</div>
-							<p className="text-sm text-white/60 mb-4">
-								Para los 5 primeros. Después elige tu plan. Pro a €19/mes para siempre si eliges seguir.
+						<div className="mt-12 text-center">
+							<p className="text-white/50 text-sm">
+								14 días de prueba gratis. Sin tarjeta. Si no te convence, no pagás nada.
 							</p>
-							<ul className="space-y-3 text-white/60 mb-8">
-								<li>• 60 días Pro gratis</li>
-								<li>• Luego eliges tu plan</li>
-								<li>• Pro a €19/mes para siempre</li>
-							</ul>
-							<Link
-								href={`/${locale}/filo/empezar?plan=lanzamiento`}
-								className="block w-full text-center px-6 py-3 bg-white/10 border border-white/20 rounded-lg hover:border-[#D4AF37] hover:text-[#D4AF37] transition-all duration-300"
-							>
-								Empezar
-							</Link>
-						</div>
-
-						{/* Lifetime */}
-						<div className="bg-white/5 border border-white/10 rounded-2xl p-8">
-							<h3 className="text-2xl font-light mb-2">Lifetime</h3>
-							<div className="text-4xl font-light text-[#D4AF37] mb-4">
-								€400<span className="text-lg text-white/60 font-normal"> pago único</span>
-							</div>
-							<p className="text-sm text-white/60 mb-4">
-								Para siempre. Sin pagos recurrentes.
-							</p>
-							<ul className="space-y-3 text-white/60 mb-8">
-								<li>• Todo incluido</li>
-								<li>• Sin límites</li>
-								<li>• Actualizaciones de por vida</li>
-								<li>• Soporte prioritario</li>
-							</ul>
-							<Link
-								href={`/${locale}/filo/empezar?plan=lifetime`}
-								className="block w-full text-center px-6 py-3 bg-white/10 border border-white/20 rounded-lg hover:border-[#D4AF37] hover:text-[#D4AF37] transition-all duration-300"
-							>
-								Empezar
-							</Link>
-							</div>
-						</div>
-
-						{/* Ofertas adicionales */}
-						<div className="mt-12 text-center space-y-4">
-							<p className="text-white/60">
-								<strong className="text-[#D4AF37]">10 primeros clientes:</strong> Versión Premium al precio de la Básica para siempre
-							</p>
-							<p className="text-white/60">
-								<strong className="text-[#D4AF37]">Trae un amigo:</strong> 30% de descuento permanente sobre cualquier plan
+							<p className="text-white/40 text-xs mt-2">
+								¿Necesitás algo más? <a href="mailto:reservas@codetix.es" className="text-[#D4AF37] underline">Escribinos</a>
 							</p>
 						</div>
 					</div>
@@ -269,10 +236,10 @@ export default function FiloLandingPage() {
 							¿Listo para modernizar tu peluquería?
 						</h2>
 						<Link
-							href={`/${locale}/filo/empezar?plan=lanzamiento`}
+							href="/pricing"
 							className="inline-block px-12 py-5 bg-[#D4AF37] text-black font-medium text-xl rounded-lg hover:bg-[#D4AF37]/90 transition-all duration-300"
 						>
-							Empezar ahora - Es gratis
+							Ver planes y precios →
 						</Link>
 					</div>
 				</section>
