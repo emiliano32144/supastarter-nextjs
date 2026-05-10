@@ -58,8 +58,8 @@ function clientPortalLinks(data: BookingEmailData) {
   const emailParam = clientEmail ? `?email=${encodeURIComponent(clientEmail)}` : '';
   return {
     misReservas: `${base}/mis-reservas${emailParam}`,
-    cancelar: bookingId ? `${base}/reservas/${bookingId}/cancelar${emailParam}` : null,
-    reprogramar: bookingId ? `${base}/reservas/${bookingId}/reprogramar${emailParam}` : null,
+    cancelar: bookingId ? `${base}/booking/${bookingId}/cancelar${emailParam}` : null,
+    reprogramar: bookingId ? `${base}/booking/${bookingId}/reprogramar${emailParam}` : null,
     fidelidad: bookingId ? `${base}/fidelidad/${bookingId}${emailParam}` : null,
   };
 }
