@@ -9,7 +9,7 @@ import { z } from "zod";
 import { protectedProcedure } from "../../../orpc/procedures";
 import { createClient } from "@supabase/supabase-js";
 import {
-	sendBookingCancellationEmail,
+	sendCancellationEmail,
 	sendBookingCompletedEmail,
 } from "../../../../../apps/web/lib/email/booking-emails";
 
@@ -478,9 +478,9 @@ export const deleteBookings = protectedProcedure
 
         // 3. Enviar email de cancelación al cliente
         try {
-            const { sendBookingCancellationEmail } = await import("../../../../../apps/web/lib/email/booking-emails");
+            const { sendCancellationEmail } = await import("../../../../../apps/web/lib/email/booking-emails");
             if (booking.client_email) {
-                await sendBookingCancellationEmail({
+                await sendCancellationEmail({
                     clientName: booking.client_name,
                     clientEmail: booking.client_email,
                     serviceName: "Servicio", // fallback
@@ -504,8 +504,8 @@ export const deleteBookings = protectedProcedure
                 .single();
 
             if (businessConfig?.email && booking.client_email) {
-                const { sendBookingNotificationEmail } = await import("../../../../../apps/web/lib/email/booking-emails");
-                await sendBookingNotificationEmail({
+                const { sendBusinessNotificationEmail } = await import("../../../../../apps/web/lib/email/booking-emails");
+                await sendBusinessNotificationEmail({
                     clientName: booking.client_name,
                     clientEmail: booking.client_email,
                     serviceName: "Servicio",
