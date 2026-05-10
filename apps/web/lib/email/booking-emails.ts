@@ -48,6 +48,22 @@ type BookingNotificationEmailData = BookingEmailData & {
   businessEmail: string;
 };
 
+function getBaseUrl() {
+  return process.env.NEXT_PUBLIC_SITE_URL || 'https://codetix.es';
+}
+
+function clientPortalLinks(data: BookingEmailData) {
+  const base = getBaseUrl();
+  const { bookingId, clientEmail } = data;
+  const emailParam = clientEmail ? `?email=${encodeURIComponent(clientEmail)}` : '';
+  return {
+    misReservas: `${base}/mis-reservas${emailParam}`,
+    cancelar: bookingId ? `${base}/reservas/${bookingId}/cancelar${emailParam}` : null,
+    reprogramar: bookingId ? `${base}/reservas/${bookingId}/reprogramar${emailParam}` : null,
+    fidelidad: bookingId ? `${base}/fidelidad/${bookingId}${emailParam}` : null,
+  };
+}
+
 export async function sendBookingConfirmationEmail(data: BookingEmailData) {
   const {
     clientName,
@@ -64,6 +80,18 @@ export async function sendBookingConfirmationEmail(data: BookingEmailData) {
   } = data;
 
   const formattedDate = formatDateTimeInTz(date, time, timezone);
+  const links = clientPortalLinks(data);
+
+  const actionButtons = [];
+  if (links.misReservas) {
+    actionButtons.push(`<a href="${links.misReservas}" style="display:inline-block;padding:10px 18px;background:#1a1a1a;color:#D4AF37;text-decoration:none;border-radius:8px;font-size:13px;font-weight:600;margin-right:8px;">📅 Ver mis reservas</a>`);
+  }
+  if (links.cancelar) {
+    actionButtons.push(`<a href="${links.cancelar}" style="display:inline-block;padding:10px 18px;background:#dc2626;color:#fff;text-decoration:none;border-radius:8px;font-size:13px;font-weight:600;margin-right:8px;">✗ Cancelar</a>`);
+  }
+  if (links.reprogramar) {
+    actionButtons.push(`<a href="${links.reprogramar}" style="display:inline-block;padding:10px 18px;background:#f59e0b;color:#fff;text-decoration:none;border-radius:8px;font-size:13px;font-weight:600;">↻ Reprogramar (1 vez)</a>`);
+  }
 
   try {
     const resend = getResend();
@@ -71,116 +99,59 @@ export async function sendBookingConfirmationEmail(data: BookingEmailData) {
       from: `${businessName} <reservas@codetix.es>`,
       to: clientEmail,
       subject: `✅ Reserva confirmada - ${businessName}`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
-          <div style="max-width: 500px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-            
-            <!-- Header -->
-            <div style="background: linear-gradient(135deg, #1a1a1a 0%, #333333 100%); padding: 30px; text-align: center;">
-              <h1 style="color: #D4AF37; margin: 0; font-size: 24px;">✂️ ${businessName}</h1>
-              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 14px;">Reserva Confirmada</p>
-            </div>
-            
-            <!-- Content -->
-            <div style="padding: 30px;">
-              <p style="color: #333; margin: 0 0 20px 0;">Hola <strong>${clientName}</strong>,</p>
-              <p style="color: #666; margin: 0 0 25px 0;">Tu cita ha sido confirmada. Aquí están los detalles:</p>
-              
-              <!-- Booking Details -->
-              <div style="background: #f8f8f8; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
-                <table style="width: 100%; border-collapse: collapse;">
-                  <tr>
-                    <td style="padding: 8px 0; color: #888; font-size: 13px;">Servicio</td>
-                    <td style="padding: 8px 0; color: #333; font-size: 14px; text-align: right; font-weight: 600;">${serviceName}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #888; font-size: 13px;">Fecha</td>
-                    <td style="padding: 8px 0; color: #333; font-size: 14px; text-align: right; font-weight: 600;">${formattedDate}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #888; font-size: 13px;">Hora</td>
-                    <td style="padding: 8px 0; color: #333; font-size: 14px; text-align: right; font-weight: 600;">${time}</td>
-                  </tr>
-                  ${professionalName ? `
-                  <tr>
-                    <td style="padding: 8px 0; color: #888; font-size: 13px;">Profesional</td>
-                    <td style="padding: 8px 0; color: #333; font-size: 14px; text-align: right; font-weight: 600;">${professionalName}</td>
-                  </tr>
-                  ` : ''}
-                  <tr style="border-top: 1px solid #eee;">
-                    <td style="padding: 12px 0 0 0; color: #888; font-size: 13px;">Total</td>
-                    <td style="padding: 12px 0 0 0; color: #D4AF37; font-size: 18px; text-align: right; font-weight: 700;">${price}€</td>
-                  </tr>
-                </table>
-              </div>
-              
-              <!-- Location -->
-              ${businessAddress ? `
-              <div style="margin-bottom: 25px;">
-                <p style="color: #888; font-size: 12px; margin: 0 0 5px 0;">📍 UBICACIÓN</p>
-                <p style="color: #333; font-size: 14px; margin: 0;">${businessAddress}</p>
-              </div>
-              ` : ''}
-              
-              <!-- Contact -->
-              ${businessPhone ? `
-              <div style="margin-bottom: 25px;">
-                <p style="color: #888; font-size: 12px; margin: 0 0 5px 0;">📞 CONTACTO</p>
-                <p style="color: #333; font-size: 14px; margin: 0;">${businessPhone}</p>
-              </div>
-              ` : ''}
-              
-              <!-- CTA -->
-              <div style="margin: 25px 0; text-align: center;">
-                <a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/reservas/${bookingId}/cancelar?email=${encodeURIComponent(clientEmail)}" 
-                   style="display: inline-block; padding: 12px 24px; background: #dc2626; color: white; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 500;">
-                  ✗ Cancelar reserva
-                </a>
-              </div>
-              <div style="margin: 15px 0; text-align: center;">
-              <div style="margin: 15px 0; text-align: center;">
-                <a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/reservas/${bookingId}/reprogramar?email=${encodeURIComponent(clientEmail)}" 
-                   style="display: inline-block; padding: 10px 20px; background: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 500;">
-                  ? Reprogramar cita (1 vez)
-                </a>
-              </div>
-                <a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/fidelidad/${bookingId}?email=${encodeURIComponent(clientEmail)}" 
-                   style="display: inline-block; padding: 10px 20px; background: #D4AF37; color: #1a1a1a; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 500;">
-                  🎖️ Ver mis puntos de fidelización
-                </a>
-              </div>
-              <p style="color: #666; font-size: 13px; margin: 25px 0 0 0; text-align: center;">
-                Si necesitas cancelar o modificar tu cita, contáctanos con al menos 24h de antelación.
-              </p>
-            </div>
-            
-            <!-- Footer -->
-            <div style="background: #f8f8f8; padding: 20px; text-align: center; border-top: 1px solid #eee;">
-              <p style="color: #888; font-size: 12px; margin: 0;">¡Te esperamos!</p>
-              <p style="color: #D4AF37; font-size: 14px; font-weight: 600; margin: 5px 0 0 0;">${businessName}</p>
-            </div>
-            
-          </div>
-        </body>
-        </html>
-      `,
+      html: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f5f5;margin:0;padding:20px;">
+  <div style="max-width:500px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+    <div style="background:linear-gradient(135deg,#1a1a1a,#333);padding:30px;text-align:center;">
+      <h1 style="color:#D4AF37;margin:0;font-size:24px;">✂️ ${businessName}</h1>
+      <p style="color:#fff;margin:10px 0 0;font-size:14px;">Reserva Confirmada</p>
+    </div>
+    <div style="padding:30px;">
+      <p style="color:#333;margin:0 0 20px;">Hola <strong>${clientName}</strong>,</p>
+      <p style="color:#666;margin:0 0 25px;">Tu cita ha sido confirmada. Aquí están los detalles:</p>
+      <div style="background:#f8f8f8;border-radius:8px;padding:20px;margin-bottom:25px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="padding:8px 0;color:#888;font-size:13px;">Servicio</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${serviceName}</td></tr>
+          <tr><td style="padding:8px 0;color:#888;font-size:13px;">Fecha y hora</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${formattedDate}</td></tr>
+          ${professionalName ? `<tr><td style="padding:8px 0;color:#888;font-size:13px;">Profesional</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${professionalName}</td></tr>` : ''}
+          <tr><td style="padding:8px 0;color:#888;font-size:13px;">Precio</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${price.toFixed(2)} €</td></tr>
+        </table>
+      </div>
+      ${businessPhone || businessAddress ? `<div style="background:#f8f8f8;border-radius:8px;padding:15px;margin-bottom:25px;">
+        ${businessPhone ? `<p style="margin:4px 0;font-size:13px;color:#666;">📞 ${businessPhone}</p>` : ''}
+        ${businessAddress ? `<p style="margin:4px 0;font-size:13px;color:#666;">📍 ${businessAddress}</p>` : ''}
+      </div>` : ''}
+      <div style="margin-bottom:25px;">
+        <p style="color:#666;font-size:13px;margin-bottom:12px;">¿Necesitás cambiar algo?</p>
+        <div>${actionButtons.join('')}</div>
+      </div>
+      ${links.fidelidad ? `<div style="background:linear-gradient(135deg,#fef9e7,#f5f0d0);border-radius:8px;padding:15px;margin-bottom:20px;border-left:4px solid #D4AF37;">
+        <p style="margin:0;font-size:13px;color:#7c6f3e;">🎖️ Esta cita suma puntos XP para tu fidelización. <a href="${links.fidelidad}" style="color:#b8860b;text-decoration:underline;font-weight:600;">Ver mis puntos →</a></p>
+      </div>` : ''}
+      <p style="color:#999;font-size:12px;text-align:center;margin-top:20px;">Recibirás un recordatorio 24h antes de tu cita.</p>
+    </div>
+    <div style="background:#1a1a1a;padding:20px;text-align:center;">
+      <p style="color:#888;font-size:12px;margin:0;">filo by Codetix — reservas@codetix.es</p>
+    </div>
+  </div>
+</body>
+</html>`,
     });
 
     if (error) {
-      console.error('Error sending email:', error);
+      console.error('Error enviando email de confirmación:', error);
       return { success: false, error };
     }
 
     return { success: true, data: emailData };
-  } catch (error) {
-    console.error('Error sending email:', error);
-    return { success: false, error };
+  } catch (err) {
+    console.error('Error en sendBookingConfirmationEmail:', err);
+    return { success: false, error: err };
   }
 }
 
@@ -200,124 +171,81 @@ export async function sendBookingReminderEmail(data: BookingEmailData) {
   } = data;
 
   const formattedDate = formatDateTimeInTz(date, time, timezone);
+  const links = clientPortalLinks(data);
+
+  const actionButtons = [];
+  if (links.misReservas) {
+    actionButtons.push(`<a href="${links.misReservas}" style="display:inline-block;padding:10px 18px;background:#1a1a1a;color:#D4AF37;text-decoration:none;border-radius:8px;font-size:13px;font-weight:600;margin-right:8px;">📅 Ver mis reservas</a>`);
+  }
+  if (links.cancelar) {
+    actionButtons.push(`<a href="${links.cancelar}" style="display:inline-block;padding:10px 18px;background:#dc2626;color:#fff;text-decoration:none;border-radius:8px;font-size:13px;font-weight:600;margin-right:8px;">✗ Cancelar</a>`);
+  }
+  if (links.reprogramar) {
+    actionButtons.push(`<a href="${links.reprogramar}" style="display:inline-block;padding:10px 18px;background:#f59e0b;color:#fff;text-decoration:none;border-radius:8px;font-size:13px;font-weight:600;">↻ Reprogramar (1 vez)</a>`);
+  }
 
   try {
     const resend = getResend();
     const { data: emailData, error } = await resend.emails.send({
       from: `${businessName} <reservas@codetix.es>`,
       to: clientEmail,
-      subject: `📅 Recordatorio: Tu cita es mañana - ${businessName}`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
-          <div style="max-width: 500px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-            
-            <!-- Header -->
-            <div style="background: linear-gradient(135deg, #1a1a1a 0%, #333333 100%); padding: 30px; text-align: center;">
-              <h1 style="color: #D4AF37; margin: 0; font-size: 24px;">✂️ ${businessName}</h1>
-              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 14px;">Recordatorio de Cita</p>
-            </div>
-            
-            <!-- Content -->
-            <div style="padding: 30px;">
-              <p style="color: #333; margin: 0 0 20px 0;">Hola <strong>${clientName}</strong>,</p>
-              <p style="color: #666; margin: 0 0 25px 0;">Te recordamos que tienes una cita mañana. Aquí están los detalles:</p>
-              
-              <!-- Booking Details -->
-              <div style="background: #f8f8f8; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
-                <table style="width: 100%; border-collapse: collapse;">
-                  <tr>
-                    <td style="padding: 8px 0; color: #888; font-size: 13px;">Servicio</td>
-                    <td style="padding: 8px 0; color: #333; font-size: 14px; text-align: right; font-weight: 600;">${serviceName}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #888; font-size: 13px;">Fecha</td>
-                    <td style="padding: 8px 0; color: #333; font-size: 14px; text-align: right; font-weight: 600;">${formattedDate}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #888; font-size: 13px;">Hora</td>
-                    <td style="padding: 8px 0; color: #333; font-size: 14px; text-align: right; font-weight: 600;">${time}</td>
-                  </tr>
-                  ${professionalName ? `
-                  <tr>
-                    <td style="padding: 8px 0; color: #888; font-size: 13px;">Profesional</td>
-                    <td style="padding: 8px 0; color: #333; font-size: 14px; text-align: right; font-weight: 600;">${professionalName}</td>
-                  </tr>
-                  ` : ''}
-                  <tr style="border-top: 1px solid #eee;">
-                    <td style="padding: 12px 0 0 0; color: #888; font-size: 13px;">Total</td>
-                    <td style="padding: 12px 0 0 0; color: #D4AF37; font-size: 18px; text-align: right; font-weight: 700;">${price}€</td>
-                  </tr>
-                </table>
-              </div>
-              
-              <!-- Location -->
-              ${businessAddress ? `
-              <div style="margin-bottom: 25px;">
-                <p style="color: #888; font-size: 12px; margin: 0 0 5px 0;">📍 UBICACIÓN</p>
-                <p style="color: #333; font-size: 14px; margin: 0;">${businessAddress}</p>
-              </div>
-              ` : ''}
-              
-              <!-- Contact -->
-              ${businessPhone ? `
-              <div style="margin-bottom: 25px;">
-                <p style="color: #888; font-size: 12px; margin: 0 0 5px 0;">📞 CONTACTO</p>
-                <p style="color: #333; font-size: 14px; margin: 0;">${businessPhone}</p>
-              </div>
-              ` : ''}
-              
-              <!-- CTA -->
-              <p style="color: #666; font-size: 13px; margin: 25px 0 0 0; text-align: center;">
-              <!-- CTA -->
-              <div style="margin: 25px 0; text-align: center;">
-                <a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/reservas/${bookingId}/cancelar?email=${encodeURIComponent(clientEmail)}" 
-                   style="display: inline-block; padding: 12px 24px; background: #dc2626; color: white; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 500;">
-                  ? Cancelar reserva
-                </a>
-              </div>
-              <div style="margin: 15px 0; text-align: center;">
-                <a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/reservas/${bookingId}/reprogramar?email=${encodeURIComponent(clientEmail)}" 
-                   style="display: inline-block; padding: 10px 20px; background: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 500;">
-                  ? Cambiar horario (1 vez)
-                </a>
-              </div>
-                Si necesitas cancelar o modificar tu cita, contáctanos con al menos 24h de antelación.
-              </p>
-            </div>
-            
-            <!-- Footer -->
-            <div style="background: #f8f8f8; padding: 20px; text-align: center; border-top: 1px solid #eee;">
-              <p style="color: #888; font-size: 12px; margin: 0;">¡Te esperamos!</p>
-              <p style="color: #D4AF37; font-size: 14px; font-weight: 600; margin: 5px 0 0 0;">${businessName}</p>
-            </div>
-            
-          </div>
-        </body>
-        </html>
-      `,
+      subject: `⏰ Recordatorio: Tu cita mañana en ${businessName}`,
+      html: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f5f5;margin:0;padding:20px;">
+  <div style="max-width:500px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+    <div style="background:linear-gradient(135deg,#1a1a1a,#333);padding:30px;text-align:center;">
+      <h1 style="color:#D4AF37;margin:0;font-size:24px;">⏰ Recordatorio</h1>
+      <p style="color:#fff;margin:10px 0 0;font-size:14px;">Tu cita es mañana</p>
+    </div>
+    <div style="padding:30px;">
+      <p style="color:#333;margin:0 0 20px;">Hola <strong>${clientName}</strong>,</p>
+      <p style="color:#666;margin:0 0 25px;">Te recordamos que tenés una cita programada:</p>
+      <div style="background:#f8f8f8;border-radius:8px;padding:20px;margin-bottom:25px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="padding:8px 0;color:#888;font-size:13px;">Servicio</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${serviceName}</td></tr>
+          <tr><td style="padding:8px 0;color:#888;font-size:13px;">Fecha y hora</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${formattedDate}</td></tr>
+          ${professionalName ? `<tr><td style="padding:8px 0;color:#888;font-size:13px;">Profesional</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${professionalName}</td></tr>` : ''}
+        </table>
+      </div>
+      ${businessPhone || businessAddress ? `<div style="background:#f8f8f8;border-radius:8px;padding:15px;margin-bottom:25px;">
+        ${businessPhone ? `<p style="margin:4px 0;font-size:13px;color:#666;">📞 ${businessPhone}</p>` : ''}
+        ${businessAddress ? `<p style="margin:4px 0;font-size:13px;color:#666;">📍 ${businessAddress}</p>` : ''}
+      </div>` : ''}
+      <div style="margin-bottom:25px;">
+        <p style="color:#666;font-size:13px;margin-bottom:12px;">¿Algo cambió?</p>
+        <div>${actionButtons.join('')}</div>
+      </div>
+      ${links.fidelidad ? `<div style="background:linear-gradient(135deg,#fef9e7,#f5f0d0);border-radius:8px;padding:15px;margin-bottom:20px;border-left:4px solid #D4AF37;">
+        <p style="margin:0;font-size:13px;color:#7c6f3e;">🎖️ No olvides que esta cita suma puntos XP. <a href="${links.fidelidad}" style="color:#b8860b;text-decoration:underline;font-weight:600;">Ver mis puntos →</a></p>
+      </div>` : ''}
+      <p style="color:#999;font-size:12px;text-align:center;margin-top:20px;">Si no podés asistir, cancelá o reprogramá desde los botones de arriba.</p>
+    </div>
+    <div style="background:#1a1a1a;padding:20px;text-align:center;">
+      <p style="color:#888;font-size:12px;margin:0;">filo by Codetix — reservas@codetix.es</p>
+    </div>
+  </div>
+</body>
+</html>`,
     });
 
     if (error) {
-      console.error('Error sending reminder email:', JSON.stringify(error, null, 2));
-      return { success: false, error: error.message };
+      console.error('Error enviando recordatorio:', error);
+      return { success: false, error };
     }
 
     return { success: true, data: emailData };
-  } catch (error) {
-    console.error('Error sending reminder email:', JSON.stringify(error, null, 2));
-    return { success: false, error };
+  } catch (err) {
+    console.error('Error en sendBookingReminderEmail:', err);
+    return { success: false, error: err };
   }
 }
 
-export async function sendBookingNotificationEmail(
-  data: BookingNotificationEmailData,
-) {
+export async function sendBusinessNotificationEmail(data: BookingNotificationEmailData) {
   const {
     clientName,
     clientEmail,
@@ -327,8 +255,6 @@ export async function sendBookingNotificationEmail(
     time,
     price,
     businessName,
-    businessPhone,
-    businessAddress,
     businessEmail,
     timezone = 'Europe/Madrid',
   } = data;
@@ -338,104 +264,60 @@ export async function sendBookingNotificationEmail(
   try {
     const resend = getResend();
     const { data: emailData, error } = await resend.emails.send({
-      from: `${businessName} <reservas@codetix.es>`,
+      from: `filo <reservas@codetix.es>`,
       to: businessEmail,
-      subject: `🔔 Nueva reserva — ${businessName}`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
-          <div style="max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-
-            <div style="background: linear-gradient(135deg, #1a1a1a 0%, #333333 100%); padding: 28px; text-align: center;">
-              <h1 style="color: #D4AF37; margin: 0; font-size: 22px;">✂️ ${businessName}</h1>
-              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 14px;">Nueva reserva recibida</p>
-            </div>
-
-            <div style="padding: 28px;">
-              <p style="color: #333; margin: 0 0 8px 0;">Se ha registrado una nueva reserva desde la página pública.</p>
-
-              <div style="background: #f8f8f8; border-radius: 8px; padding: 20px; margin: 22px 0;">
-                <p style="color: #888; font-size: 12px; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.05em;">Cliente</p>
-                <p style="color: #333; margin: 0 0 6px 0; font-size: 15px;"><strong>${clientName}</strong></p>
-                <p style="color: #555; margin: 0; font-size: 14px;">
-                  <a href="mailto:${clientEmail}" style="color: #2563eb;">${clientEmail}</a>
-                </p>
-              </div>
-
-              <div style="background: #f8f8f8; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-                <table style="width: 100%; border-collapse: collapse;">
-                  <tr>
-                    <td style="padding: 8px 0; color: #888; font-size: 13px;">Servicio</td>
-                    <td style="padding: 8px 0; color: #333; font-size: 14px; text-align: right; font-weight: 600;">${serviceName}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #888; font-size: 13px;">Fecha</td>
-                    <td style="padding: 8px 0; color: #333; font-size: 14px; text-align: right; font-weight: 600;">${formattedDate}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #888; font-size: 13px;">Hora</td>
-                    <td style="padding: 8px 0; color: #333; font-size: 14px; text-align: right; font-weight: 600;">${time}</td>
-                  </tr>
-                  ${professionalName ? `
-                  <tr>
-                    <td style="padding: 8px 0; color: #888; font-size: 13px;">Profesional</td>
-                    <td style="padding: 8px 0; color: #333; font-size: 14px; text-align: right; font-weight: 600;">${professionalName}</td>
-                  </tr>
-                  ` : ''}
-                  <tr style="border-top: 1px solid #eee;">
-                    <td style="padding: 12px 0 0 0; color: #888; font-size: 13px;">Importe</td>
-                    <td style="padding: 12px 0 0 0; color: #D4AF37; font-size: 18px; text-align: right; font-weight: 700;">${price}€</td>
-                  </tr>
-                </table>
-              </div>
-
-              ${businessAddress ? `
-              <div style="margin-bottom: 18px;">
-                <p style="color: #888; font-size: 12px; margin: 0 0 5px 0;">📍 UBICACIÓN DEL NEGOCIO</p>
-                <p style="color: #333; font-size: 14px; margin: 0;">${businessAddress}</p>
-              </div>
-              ` : ''}
-
-              ${businessPhone ? `
-              <div style="margin-bottom: 0;">
-                <p style="color: #888; font-size: 12px; margin: 0 0 5px 0;">📞 TELÉFONO NEGOCIO</p>
-                <p style="color: #333; font-size: 14px; margin: 0;">${businessPhone}</p>
-              </div>
-              ` : ''}
-            </div>
-
-            <div style="background: #f8f8f8; padding: 16px; text-align: center; border-top: 1px solid #eee;">
-              <p style="color: #888; font-size: 11px; margin: 0;">Este correo es informativo para el equipo de ${businessName}.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
+      subject: `📅 Nueva reserva - ${clientName}`,
+      html: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f5f5;margin:0;padding:20px;">
+  <div style="max-width:500px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+    <div style="background:linear-gradient(135deg,#1a1a1a,#333);padding:30px;text-align:center;">
+      <h1 style="color:#D4AF37;margin:0;font-size:24px;">📅 Nueva Reserva</h1>
+      <p style="color:#fff;margin:10px 0 0;font-size:14px;">${businessName}</p>
+    </div>
+    <div style="padding:30px;">
+      <p style="color:#333;margin:0 0 20px;">Tenés una nueva reserva:</p>
+      <div style="background:#f8f8f8;border-radius:8px;padding:20px;margin-bottom:25px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="padding:8px 0;color:#888;font-size:13px;">Cliente</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${clientName}</td></tr>
+          <tr><td style="padding:8px 0;color:#888;font-size:13px;">Email</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${clientEmail}</td></tr>
+          <tr><td style="padding:8px 0;color:#888;font-size:13px;">Servicio</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${serviceName}</td></tr>
+          <tr><td style="padding:8px 0;color:#888;font-size:13px;">Fecha y hora</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${formattedDate}</td></tr>
+          ${professionalName ? `<tr><td style="padding:8px 0;color:#888;font-size:13px;">Profesional</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${professionalName}</td></tr>` : ''}
+          <tr><td style="padding:8px 0;color:#888;font-size:13px;">Precio</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${price.toFixed(2)} €</td></tr>
+        </table>
+      </div>
+      <p style="color:#999;font-size:12px;text-align:center;margin-top:20px;">Gestiona esta reserva desde tu panel de administración.</p>
+    </div>
+    <div style="background:#1a1a1a;padding:20px;text-align:center;">
+      <p style="color:#888;font-size:12px;margin:0;">filo by Codetix — reservas@codetix.es</p>
+    </div>
+  </div>
+</body>
+</html>`,
     });
 
     if (error) {
-      console.error('Error sending salon notification email:', JSON.stringify(error, null, 2));
+      console.error('Error enviando notificación al negocio:', error);
       return { success: false, error };
     }
 
     return { success: true, data: emailData };
-  } catch (error) {
-    console.error('Error sending salon notification email:', JSON.stringify(error, null, 2));
-    return { success: false, error };
+  } catch (err) {
+    console.error('Error en sendBusinessNotificationEmail:', err);
+    return { success: false, error: err };
   }
 }
 
-export async function sendBookingCancellationEmail(data: BookingEmailData) {
+export async function sendCancellationEmail(data: BookingEmailData) {
   const {
     clientName,
     clientEmail,
     serviceName,
-    professionalName,
     date,
     time,
     businessName,
@@ -449,182 +331,48 @@ export async function sendBookingCancellationEmail(data: BookingEmailData) {
     const { data: emailData, error } = await resend.emails.send({
       from: `${businessName} <reservas@codetix.es>`,
       to: clientEmail,
-      subject: `❌ Tu reserva ha sido cancelada - ${businessName}`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
-          <div style="max-width: 500px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-
-            <div style="background: linear-gradient(135deg, #1a1a1a 0%, #333333 100%); padding: 30px; text-align: center;">
-              <h1 style="color: #D4AF37; margin: 0; font-size: 24px;">✂️ ${businessName}</h1>
-              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 14px;">Reserva Cancelada</p>
-            </div>
-
-            <div style="padding: 30px;">
-              <p style="color: #333; margin: 0 0 20px 0;">Hola <strong>${clientName}</strong>,</p>
-              <p style="color: #666; margin: 0 0 25px 0;">Lamentamos informarte que tu cita ha sido <strong>cancelada</strong>. Aquí están los detalles:</p>
-
-              <div style="background: #f8f8f8; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
-                <table style="width: 100%; border-collapse: collapse;">
-                  <tr>
-                    <td style="padding: 8px 0; color: #888; font-size: 13px;">Servicio</td>
-                    <td style="padding: 8px 0; color: #333; font-size: 14px; text-align: right; font-weight: 600;">${serviceName}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #888; font-size: 13px;">Fecha</td>
-                    <td style="padding: 8px 0; color: #333; font-size: 14px; text-align: right; font-weight: 600;">${formattedDate}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #888; font-size: 13px;">Hora</td>
-                    <td style="padding: 8px 0; color: #333; font-size: 14px; text-align: right; font-weight: 600;">${time}</td>
-                  </tr>
-                  ${
-                    professionalName
-                      ? `
-                  <tr>
-                    <td style="padding: 8px 0; color: #888; font-size: 13px;">Profesional</td>
-                    <td style="padding: 8px 0; color: #333; font-size: 14px; text-align: right; font-weight: 600;">${professionalName}</td>
-                  </tr>
-                  `
-                      : ""
-                  }
-                </table>
-              </div>
-
-              <p style="color: #666; font-size: 13px; margin: 25px 0 0 0; text-align: center;">
-                Si tienes alguna duda, contáctanos. Puedes volver a reservar en cualquier momento.
-              </p>
-            </div>
-
-            <div style="background: #f8f8f8; padding: 20px; text-align: center; border-top: 1px solid #eee;">
-              <p style="color: #888; font-size: 12px; margin: 0;">Disculpa las molestias</p>
-              <p style="color: #D4AF37; font-size: 14px; font-weight: 600; margin: 5px 0 0 0;">${businessName}</p>
-            </div>
-
-          </div>
-        </body>
-        </html>
-      `,
+      subject: `✗ Reserva cancelada - ${businessName}`,
+      html: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f5f5;margin:0;padding:20px;">
+  <div style="max-width:500px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+    <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:30px;text-align:center;">
+      <h1 style="color:#fff;margin:0;font-size:24px;">✗ Reserva Cancelada</h1>
+      <p style="color:#fff;margin:10px 0 0;font-size:14px;opacity:0.9;">${businessName}</p>
+    </div>
+    <div style="padding:30px;">
+      <p style="color:#333;margin:0 0 20px;">Hola <strong>${clientName}</strong>,</p>
+      <p style="color:#666;margin:0 0 25px;">Tu reserva ha sido cancelada:</p>
+      <div style="background:#f8f8f8;border-radius:8px;padding:20px;margin-bottom:25px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="padding:8px 0;color:#888;font-size:13px;">Servicio</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${serviceName}</td></tr>
+          <tr><td style="padding:8px 0;color:#888;font-size:13px;">Fecha y hora</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${formattedDate}</td></tr>
+        </table>
+      </div>
+      <p style="color:#666;margin:0 0 20px;">Si querés volver a reservar, podés hacerlo desde nuestra página:</p>
+      <a href="${getBaseUrl()}/reservas" style="display:inline-block;padding:12px 24px;background:#1a1a1a;color:#D4AF37;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">Reservar de nuevo →</a>
+      <p style="color:#999;font-size:12px;text-align:center;margin-top:20px;">Si no fuiste vos quien canceló, contactá al salón.</p>
+    </div>
+    <div style="background:#1a1a1a;padding:20px;text-align:center;">
+      <p style="color:#888;font-size:12px;margin:0;">filo by Codetix — reservas@codetix.es</p>
+    </div>
+  </div>
+</body>
+</html>`,
     });
 
     if (error) {
-      console.error("Error sending cancellation email:", error);
+      console.error('Error enviando email de cancelación:', error);
       return { success: false, error };
     }
 
     return { success: true, data: emailData };
-  } catch (error) {
-    console.error("Error sending cancellation email:", error);
-    return { success: false, error };
-  }
-}
-
-export async function sendBookingCompletedEmail(
-  data: BookingEmailData & {
-    xpEarned: number;
-    totalXp: number;
-    nextLevel?: string;
-    nextReward?: string;
-  },
-) {
-  const {
-    clientName,
-    clientEmail,
-    serviceName,
-    professionalName,
-    date,
-    time,
-    businessName,
-    xpEarned,
-    totalXp,
-    nextLevel,
-    nextReward,
-  } = data;
-
-  const formattedDate = new Date(date).toLocaleDateString("es-ES", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-
-  try {
-    const resend = getResend();
-    const { data: emailPayload, error } = await resend.emails.send({
-      from: `${businessName} <reservas@codetix.es>`,
-      to: clientEmail,
-      subject: `🎉 ¡Cita completada! +${xpEarned} XP - ${businessName}`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
-          <div style="max-width: 500px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-
-            <div style="background: linear-gradient(135deg, #1a1a1a 0%, #333333 100%); padding: 30px; text-align: center;">
-              <h1 style="color: #D4AF37; margin: 0; font-size: 24px;">✂️ ${businessName}</h1>
-              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 14px;">¡Gracias por tu visita!</p>
-            </div>
-
-            <div style="padding: 30px;">
-              <p style="color: #333; margin: 0 0 20px 0;">Hola <strong>${clientName}</strong>,</p>
-              <p style="color: #666; margin: 0 0 25px 0;">Tu cita del ${formattedDate} ha sido completada. ¡Esperamos verte pronto!</p>
-
-              <div style="background: linear-gradient(135deg, #1a1a1a 0%, #333333 100%); border-radius: 12px; padding: 25px; margin-bottom: 25px; text-align: center;">
-                <div style="color: #D4AF37; font-size: 48px; font-weight: 700; margin-bottom: 10px;">+${xpEarned} XP</div>
-                <div style="color: #ffffff; font-size: 16px; margin-bottom: 5px;">XP Total: ${totalXp}</div>
-                ${
-                  nextLevel
-                    ? `
-                <div style="color: #D4AF37; font-size: 14px; margin-top: 15px;">
-                  🎯 Te faltan puntos para <strong>${nextLevel}</strong>
-                </div>
-                `
-                    : ""
-                }
-                ${
-                  nextReward
-                    ? `
-                <div style="color: #ffffff; font-size: 13px; margin-top: 10px;">
-                  🎁 Próxima recompensa: ${nextReward}
-                </div>
-                `
-                    : ""
-                }
-              </div>
-
-              <p style="color: #666; font-size: 13px; margin: 25px 0 0 0; text-align: center;">
-                Reserva tu próxima cita y sigue acumulando puntos.
-              </p>
-            </div>
-
-            <div style="background: #f8f8f8; padding: 20px; text-align: center; border-top: 1px solid #eee;">
-              <p style="color: #888; font-size: 12px; margin: 0;">¡Te esperamos pronto!</p>
-              <p style="color: #D4AF37; font-size: 14px; font-weight: 600; margin: 5px 0 0 0;">${businessName}</p>
-            </div>
-
-          </div>
-        </body>
-        </html>
-      `,
-    });
-
-    if (error) {
-      console.error("Error sending completed email:", error);
-      return { success: false, error };
-    }
-
-    return { success: true, data: emailPayload };
-  } catch (error) {
-    console.error("Error sending completed email:", error);
-    return { success: false, error };
+  } catch (err) {
+    console.error('Error en sendCancellationEmail:', err);
+    return { success: false, error: err };
   }
 }
