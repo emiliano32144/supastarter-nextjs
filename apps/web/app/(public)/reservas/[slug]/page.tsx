@@ -19,6 +19,12 @@ type BusinessConfig = {
   address: string | null;
   city: string | null;
   instagram: string | null;
+  openingTime?: string | null;
+  closingTime?: string | null;
+  slotDuration?: number;
+  workingDays?: number[];
+  facebook?: string | null;
+  website?: string | null;
 };
 
 type Service = {
@@ -333,12 +339,15 @@ export default function PublicBookingPage() {
   })();
 
   const allSlots = useMemo(() => {
+    const slotStep = business?.slotDuration || 30;
+
     if (!selectedDate) {
       if (!hasWorkingHours) {
         const fallbackSlots: string[] = [];
         for (let h = 9; h < 20; h++) {
-          fallbackSlots.push(`${h.toString().padStart(2, "0")}:00`);
-          fallbackSlots.push(`${h.toString().padStart(2, "0")}:30`);
+          for (let m = 0; m < 60; m += slotStep) {
+            fallbackSlots.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`);
+          }
         }
         return fallbackSlots;
       }
@@ -348,8 +357,9 @@ export default function PublicBookingPage() {
     if (!hasWorkingHours) {
       const fallbackSlots: string[] = [];
       for (let h = 9; h < 20; h++) {
-        fallbackSlots.push(`${h.toString().padStart(2, "0")}:00`);
-        fallbackSlots.push(`${h.toString().padStart(2, "0")}:30`);
+        for (let m = 0; m < 60; m += slotStep) {
+          fallbackSlots.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`);
+        }
       }
       return fallbackSlots;
     }
@@ -372,7 +382,7 @@ export default function PublicBookingPage() {
     const lastStart = closeMinutes - serviceDuration;
 
     const slots: string[] = [];
-    for (let current = openMinutes; current <= lastStart; current += 30) {
+    for (let current = openMinutes; current <= lastStart; current += slotStep) {
       const slotEnd = current + serviceDuration;
 
       if (
@@ -395,6 +405,7 @@ export default function PublicBookingPage() {
     hasWorkingHours,
     serviceDuration,
     workingHours,
+    business,
   ]);
 
   const timeSlots = useMemo(
