@@ -302,15 +302,23 @@ BEGIN
         SELECT 1 FROM information_schema.columns
         WHERE table_name = 'working_hours' AND column_name = 'start_time'
     ) THEN
-        ALTER TABLE working_hours RENAME COLUMN start_time TO open_time;
-        RAISE NOTICE 'Migrado: working_hours.start_time → open_time';
+        BEGIN
+            ALTER TABLE working_hours RENAME COLUMN start_time TO open_time;
+            RAISE NOTICE 'Migrado: working_hours.start_time → open_time';
+        EXCEPTION WHEN OTHERS THEN
+            RAISE NOTICE 'start_time ya migrado: %', SQLERRM;
+        END;
     END IF;
     IF EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_name = 'working_hours' AND column_name = 'end_time'
     ) THEN
-        ALTER TABLE working_hours RENAME COLUMN end_time TO close_time;
-        RAISE NOTICE 'Migrado: working_hours.end_time → close_time';
+        BEGIN
+            ALTER TABLE working_hours RENAME COLUMN end_time TO close_time;
+            RAISE NOTICE 'Migrado: working_hours.end_time → close_time';
+        EXCEPTION WHEN OTHERS THEN
+            RAISE NOTICE 'end_time ya migrado: %', SQLERRM;
+        END;
     END IF;
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns
@@ -411,7 +419,7 @@ BEGIN
 END $$;
 
 -- ============================================
--- RLS POLICIES (Seguridad Supabase) - v4.1
+-- RLS POLICIES (Seguridad Supabase) - v4.2
 -- ============================================
 -- NOTA: FILO accede a Supabase SOLO desde el backend (Next.js API routes)
 -- usando SUPABASE_SERVICE_ROLE_KEY, que bypass RLS. Estas policies son
@@ -437,30 +445,68 @@ EXCEPTION WHEN OTHERS THEN
 END $$;
 
 -- Service role tiene acceso total (backend Next.js)
-CREATE POLICY IF NOT EXISTS "Service role full access" ON bookings FOR ALL TO service_role USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "Service role full access" ON services FOR ALL TO service_role USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "Service role full access" ON professionals FOR ALL TO service_role USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "Service role full access" ON working_hours FOR ALL TO service_role USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "Service role full access" ON clients FOR ALL TO service_role USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "Service role full access" ON business_config FOR ALL TO service_role USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "Service role full access" ON client_profiles FOR ALL TO service_role USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "Service role full access" ON style_gallery FOR ALL TO service_role USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "Service role full access" ON loyalty_levels FOR ALL TO service_role USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "Service role full access" ON earned_rewards FOR ALL TO service_role USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "Service role full access" ON xp_history FOR ALL TO service_role USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "Service role full access" ON blocked_slots FOR ALL TO service_role USING (true) WITH CHECK (true);
+-- DROP + CREATE en vez de IF NOT EXISTS (PostgreSQL no soporta IF NOT EXISTS en CREATE POLICY)
+DROP POLICY IF EXISTS "Service role full access bookings" ON bookings;
+CREATE POLICY "Service role full access bookings" ON bookings FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role full access services" ON services;
+CREATE POLICY "Service role full access services" ON services FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role full access professionals" ON professionals;
+CREATE POLICY "Service role full access professionals" ON professionals FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role full access working_hours" ON working_hours;
+CREATE POLICY "Service role full access working_hours" ON working_hours FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role full access clients" ON clients;
+CREATE POLICY "Service role full access clients" ON clients FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role full access business_config" ON business_config;
+CREATE POLICY "Service role full access business_config" ON business_config FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role full access client_profiles" ON client_profiles;
+CREATE POLICY "Service role full access client_profiles" ON client_profiles FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role full access style_gallery" ON style_gallery;
+CREATE POLICY "Service role full access style_gallery" ON style_gallery FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role full access loyalty_levels" ON loyalty_levels;
+CREATE POLICY "Service role full access loyalty_levels" ON loyalty_levels FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role full access earned_rewards" ON earned_rewards;
+CREATE POLICY "Service role full access earned_rewards" ON earned_rewards FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role full access xp_history" ON xp_history;
+CREATE POLICY "Service role full access xp_history" ON xp_history FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role full access blocked_slots" ON blocked_slots;
+CREATE POLICY "Service role full access blocked_slots" ON blocked_slots FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 -- Lectura pública para APIs públicas (sin auth)
-CREATE POLICY IF NOT EXISTS "Public read business_config" ON business_config FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY IF NOT EXISTS "Public read services active" ON services FOR SELECT TO anon, authenticated USING (is_active = true);
-CREATE POLICY IF NOT EXISTS "Public read professionals active" ON professionals FOR SELECT TO anon, authenticated USING (is_active = true);
-CREATE POLICY IF NOT EXISTS "Public read working_hours" ON working_hours FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY IF NOT EXISTS "Public read loyalty_levels" ON loyalty_levels FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY IF NOT EXISTS "Public read style_gallery" ON style_gallery FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY IF NOT EXISTS "Public read blocked_slots" ON blocked_slots FOR SELECT TO anon, authenticated USING (true);
+DROP POLICY IF EXISTS "Public read business_config" ON business_config;
+CREATE POLICY "Public read business_config" ON business_config FOR SELECT TO anon, authenticated USING (true);
+
+DROP POLICY IF EXISTS "Public read services active" ON services;
+CREATE POLICY "Public read services active" ON services FOR SELECT TO anon, authenticated USING (is_active = true);
+
+DROP POLICY IF EXISTS "Public read professionals active" ON professionals;
+CREATE POLICY "Public read professionals active" ON professionals FOR SELECT TO anon, authenticated USING (is_active = true);
+
+DROP POLICY IF EXISTS "Public read working_hours" ON working_hours;
+CREATE POLICY "Public read working_hours" ON working_hours FOR SELECT TO anon, authenticated USING (true);
+
+DROP POLICY IF EXISTS "Public read loyalty_levels" ON loyalty_levels;
+CREATE POLICY "Public read loyalty_levels" ON loyalty_levels FOR SELECT TO anon, authenticated USING (true);
+
+DROP POLICY IF EXISTS "Public read style_gallery" ON style_gallery;
+CREATE POLICY "Public read style_gallery" ON style_gallery FOR SELECT TO anon, authenticated USING (true);
+
+DROP POLICY IF EXISTS "Public read blocked_slots" ON blocked_slots;
+CREATE POLICY "Public read blocked_slots" ON blocked_slots FOR SELECT TO anon, authenticated USING (true);
 
 -- Bookings: solo lectura de reservas públicas (para verificar disponibilidad de slots)
-CREATE POLICY IF NOT EXISTS "Public read bookings for slots" ON bookings FOR SELECT TO anon, authenticated USING (status IN ('pending', 'confirmed'));
+DROP POLICY IF EXISTS "Public read bookings for slots" ON bookings;
+CREATE POLICY "Public read bookings for slots" ON bookings FOR SELECT TO anon, authenticated USING (status IN ('pending', 'confirmed'));
 
 -- ============================================
 -- RESUMEN
