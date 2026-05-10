@@ -144,6 +144,12 @@ export async function sendBookingConfirmationEmail(data: BookingEmailData) {
                 </a>
               </div>
               <div style="margin: 15px 0; text-align: center;">
+              <div style="margin: 15px 0; text-align: center;">
+                <a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/reservas/${bookingId}/reprogramar?email=${encodeURIComponent(clientEmail)}" 
+                   style="display: inline-block; padding: 10px 20px; background: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 500;">
+                  ? Reprogramar cita (1 vez)
+                </a>
+              </div>
                 <a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/fidelidad/${bookingId}?email=${encodeURIComponent(clientEmail)}" 
                    style="display: inline-block; padding: 10px 20px; background: #D4AF37; color: #1a1a1a; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 500;">
                   🎖️ Ver mis puntos de fidelización
@@ -268,6 +274,19 @@ export async function sendBookingReminderEmail(data: BookingEmailData) {
               
               <!-- CTA -->
               <p style="color: #666; font-size: 13px; margin: 25px 0 0 0; text-align: center;">
+              <!-- CTA -->
+              <div style="margin: 25px 0; text-align: center;">
+                <a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/reservas/${bookingId}/cancelar?email=${encodeURIComponent(clientEmail)}" 
+                   style="display: inline-block; padding: 12px 24px; background: #dc2626; color: white; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 500;">
+                  ? Cancelar reserva
+                </a>
+              </div>
+              <div style="margin: 15px 0; text-align: center;">
+                <a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/reservas/${bookingId}/reprogramar?email=${encodeURIComponent(clientEmail)}" 
+                   style="display: inline-block; padding: 10px 20px; background: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 500;">
+                  ? Cambiar horario (1 vez)
+                </a>
+              </div>
                 Si necesitas cancelar o modificar tu cita, contáctanos con al menos 24h de antelación.
               </p>
             </div>
@@ -609,4 +628,3 @@ export async function sendBookingCompletedEmail(
     return { success: false, error };
   }
 }
-

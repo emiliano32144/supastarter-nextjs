@@ -247,7 +247,19 @@ END $$;
 -- Solo rellenar NULLs, NO machacar valores legitimos
 UPDATE services SET xp_value = 100 WHERE xp_value IS NULL;
 
--- 5. business_config - timezone (manejo de zonas horarias)
+-- 5. bookings - reschedule_count (tracking de reprogramaciones)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'bookings' AND column_name = 'reschedule_count'
+    ) THEN
+        ALTER TABLE bookings ADD COLUMN reschedule_count INTEGER DEFAULT 0;
+        RAISE NOTICE 'Añadida: bookings.reschedule_count';
+    END IF;
+END $$;
+
+-- 6. business_config - timezone (manejo de zonas horarias)
 DO $$
 BEGIN
     IF NOT EXISTS (
