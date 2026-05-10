@@ -109,12 +109,32 @@ export function SignupForm({ prefillEmail }: { prefillEmail?: string }) {
 		} catch (e) {
 			console.error("[SignupForm] signup error", e);
 			console.error("[SignupForm] signup raw error", JSON.stringify(e, null, 2));
+
+			// Better Auth a veces devuelve error vacío {} para email duplicado (422)
+			let errorCode: string | undefined;
+			let errorMessage = "";
+
+			if (e && typeof e === "object") {
+				if ("code" in e) {
+					errorCode = (e as Record<string, unknown>).code as string;
+				}
+				if ("message" in e) {
+					errorMessage = (e as Record<string, unknown>).message as string;
+				}
+				if ("status" in e && (e as Record<string, unknown>).status === 422) {
+					errorCode = "USER_ALREADY_EXISTS";
+				}
+			}
+
+			// Si el error está vacío y fue signup, probablemente email duplicado
+			if (!errorCode && !errorMessage && JSON.stringify(e) === "{}") {
+				errorCode = "USER_ALREADY_EXISTS";
+			}
+
 			form.setError("root", {
-				message: getAuthErrorMessage(
-					e && typeof e === "object" && "code" in e
-						? (e.code as string)
-						: undefined,
-				),
+				message: errorCode
+					? getAuthErrorMessage(errorCode)
+					: errorMessage || t("auth.errors.unknown"),
 			});
 		}
 	});

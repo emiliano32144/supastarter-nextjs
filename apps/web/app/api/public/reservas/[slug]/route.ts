@@ -117,6 +117,22 @@ export async function GET(
       return NextResponse.json({ error: "Error loading bookings" }, { status: 500 });
     }
 
+    // Obtener bloques de día completo (start_time IS NULL) para los próximos 30 días
+    // Estos se usan para grayout en el calendario del cliente
+    const { data: blockedDatesRaw } = await supabase
+      .from("blocked_slots")
+      .select("date, professional_id, reason")
+      .eq("organization_id", organizationId)
+      .is("start_time", null)
+      .gte("date", fromDate)
+      .lte("date", toDate);
+
+    const blockedDates = (blockedDatesRaw || []).map((b) => ({
+      date: b.date,
+      professional_id: b.professional_id ?? null,
+      reason: b.reason ?? null,
+    }));
+
     // Construir businessInfo desde la configuración
     const businessInfo = {
       name: businessConfig?.business_name || "Mi Salón",
@@ -144,6 +160,7 @@ export async function GET(
       professionals: professionals || [],
       workingHours: workingHours || [],
       bookings: bookings || [],
+      blockedDates,
       organizationId: organizationId,
     });
 
