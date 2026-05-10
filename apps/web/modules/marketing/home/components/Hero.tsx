@@ -27,7 +27,7 @@ export function Hero() {
 
 				<p className="mx-auto mt-4 max-w-lg text-balance text-foreground/60 text-lg">
 					Reservas online, fidelización de clientes y gestión completa.
-					Sin comisiones. Desde 19€/mes.
+					Sin comisiones. Desde 49,99€/mes.
 				</p>
 
 				<div className="mt-6 flex flex-col items-center justify-center gap-3 md:flex-row">
