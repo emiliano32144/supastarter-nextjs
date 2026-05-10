@@ -3,95 +3,52 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
 import { Check, AlertTriangle } from "lucide-react";
 import { authClient } from "@repo/auth/client";
 import { config } from "@repo/config";
-import { orpc } from "@shared/lib/orpc-query-utils";
 
 const planes = [
 	{
-		id: "basico",
-		nombre: "Básico",
-		precio: "€19",
+		id: "normal",
+		nombre: "Plan Normal",
+		precio: "€49,99",
 		periodo: "/mes",
-		descripcion: "Para empezar",
+		descripcion: "Para barberos y peluqueros independientes",
 		features: [
-			"2 profesionales",
-			"Recordatorios por Gmail",
-			"Perfiles de clientes",
-			"Panel de control",
+			"Agenda online ilimitada",
+			"Recordatorios automáticos",
+			"Fidelización XP (5 niveles)",
+			"Cancelación y reprogramación",
+			"Hasta 3 profesionales",
+			"Soporte por email",
 		],
 		destacado: false,
 	},
 	{
 		id: "pro",
-		nombre: "Pro",
-		precio: "€39",
+		nombre: "Plan Pro",
+		precio: "€95",
 		periodo: "/mes",
-		descripcion: "Más popular",
+		descripcion: "Para salones con 3+ empleados o múltiples sedes",
 		features: [
+			"Todo lo del Plan Normal",
 			"Profesionales ilimitados",
-			"Recordatorios por Gmail",
-			"Personalización total",
-			"Panel de control avanzado",
-			"Sistema de fidelización",
-		],
-		destacado: true,
-	},
-	{
-		id: "lanzamiento",
-		nombre: "Oferta Lanzamiento",
-		precio: "€1",
-		periodo: "/60 días",
-		descripcion: "Tiempo limitado",
-		features: [
-			"60 días Pro gratis",
-			"Luego eliges tu plan",
-			"Pro a €19/mes para siempre",
-			"Sin compromiso",
-		],
-		destacado: false,
-	},
-	{
-		id: "lifetime",
-		nombre: "Lifetime",
-		precio: "€400",
-		periodo: "pago único",
-		descripcion: "Para siempre",
-		features: [
-			"Todo incluido",
-			"Sin límites",
-			"Actualizaciones de por vida",
+			"Múltiples sedes / organizaciones",
+			"Personalización avanzada de marca",
 			"Soporte prioritario",
 		],
-		destacado: false,
+		destacado: true,
 	},
 ];
 
 // Mapeo de planes del formulario a planes en config y tipos de checkout
-const PLAN_CONFIG: Record<
-	string,
-	{ planId: string; productId: string; type: "subscription" | "one-time" }
-> = {
-	basico: {
-		planId: "basico",
-		productId: process.env.NEXT_PUBLIC_PRICE_ID_BASICO_MONTHLY || "",
+const PLAN_CONFIG: Record<string, { priceId: string; type: "subscription" | "one-time" }> = {
+	normal: {
+		priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_NORMAL || "",
 		type: "subscription",
 	},
 	pro: {
-		planId: "pro",
-		productId: process.env.NEXT_PUBLIC_PRICE_ID_PRO_MONTHLY || "",
-		type: "subscription",
-	},
-	lifetime: {
-		planId: "lifetime",
-		productId: process.env.NEXT_PUBLIC_PRICE_ID_LIFETIME || "",
-		type: "one-time",
-	},
-	lanzamiento: {
-		planId: "promo",
-		productId: process.env.NEXT_PUBLIC_PRICE_ID_PROMO_LANZAMIENTO || "",
+		priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO || "",
 		type: "subscription",
 	},
 };
@@ -103,10 +60,10 @@ export default function EmpezarPage() {
 	
 	// Leer plan desde query param
 	const planFromUrl = searchParams.get("plan");
-	const validPlans = ["basico", "pro", "lanzamiento", "lifetime"];
+	const validPlans = ["normal", "pro"];
 	const initialPlan = planFromUrl && validPlans.includes(planFromUrl) 
 		? planFromUrl 
-		: "lanzamiento";
+		: "normal";
 	
 	const [planSeleccionado, setPlanSeleccionado] = useState(initialPlan);
 	const [paso, setPaso] = useState(planFromUrl && validPlans.includes(planFromUrl) ? 2 : 1); // 1: elegir plan, 2: registro
@@ -119,10 +76,6 @@ export default function EmpezarPage() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [success, setSuccess] = useState(false);
-
-	const createCheckoutLinkMutation = useMutation(
-		orpc.payments.createCheckoutLink.mutationOptions(),
-	);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -138,7 +91,6 @@ export default function EmpezarPage() {
 			});
 
 			if (signupError) {
-				// Manejo de errores comunes
 				let errorMessage = "Error al crear la cuenta. Por favor, intenta de nuevo.";
 				
 				if (signupError.code === "USER_ALREADY_EXISTS") {
@@ -156,60 +108,28 @@ export default function EmpezarPage() {
 				return;
 			}
 
-			// Usuario creado y autenticado (autoSignIn: true)
-			console.log("[FILO Signup] Usuario registrado exitosamente");
-			
-			// Obtener configuración del plan seleccionado
+			// Checkout con Stripe
 			const planConfig = PLAN_CONFIG[planSeleccionado];
-			console.log("[FILO Checkout] Plan seleccionado:", planSeleccionado);
-			console.log("[FILO Checkout] Plan config:", planConfig);
-
-			if (!planConfig || !planConfig.productId) {
-				console.error("[FILO Checkout] Plan no válido:", { planSeleccionado, planConfig });
-				setError("Plan no válido o no configurado. Por favor, contacta con soporte.");
+			if (!planConfig || !planConfig.priceId) {
+				setError("Plan no configurado. Contactá a soporte.");
 				setLoading(false);
 				return;
 			}
 
-			// Crear checkout link con Stripe
-			try {
-				console.log("[FILO Checkout] Creando checkout link con:", {
-					type: planConfig.type,
-					productId: planConfig.productId,
-					redirectUrl: `${window.location.origin}/app?checkout=success`,
-				});
+			const res = await fetch("/api/checkout", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					priceId: planConfig.priceId,
+					customerEmail: formData.email,
+				}),
+			});
 
-				const { checkoutLink } = await createCheckoutLinkMutation.mutateAsync({
-					type: planConfig.type,
-					productId: planConfig.productId,
-					redirectUrl: `${window.location.origin}/app?checkout=success`,
-				});
-
-				console.log("[FILO Checkout] Checkout link creado:", checkoutLink);
-
-				// Redirigir a Stripe Checkout
-				window.location.href = checkoutLink;
-			} catch (paymentError) {
-				console.error("[FILO Checkout] Error completo:", paymentError);
-				console.error("[FILO Checkout] Error details:", {
-					message: paymentError instanceof Error ? paymentError.message : String(paymentError),
-					stack: paymentError instanceof Error ? paymentError.stack : undefined,
-					error: paymentError,
-				});
-				
-				// Mostrar error más específico
-				let errorMessage = "Error al procesar el pago. Por favor, intenta de nuevo o contacta con soporte.";
-				if (paymentError instanceof Error) {
-					if (paymentError.message.includes("productId")) {
-						errorMessage = "Error: El plan seleccionado no está configurado correctamente.";
-					} else if (paymentError.message.includes("STRIPE")) {
-						errorMessage = "Error de conexión con Stripe. Verifica la configuración.";
-					} else {
-						errorMessage = `Error: ${paymentError.message}`;
-					}
-				}
-				
-				setError(errorMessage);
+			const data = await res.json();
+			if (data.url) {
+				window.location.href = data.url;
+			} else {
+				setError(data.error || "Error al crear la sesión de pago");
 				setLoading(false);
 			}
 
@@ -253,7 +173,7 @@ export default function EmpezarPage() {
 					{/* Paso 1: Elegir Plan */}
 					{paso === 1 && (
 						<>
-							<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12 max-w-4xl mx-auto">
 								{planes.map((plan) => (
 									<div
 										key={plan.id}
