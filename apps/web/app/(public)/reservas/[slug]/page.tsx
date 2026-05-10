@@ -19,6 +19,7 @@ type BusinessConfig = {
   address: string | null;
   city: string | null;
   instagram: string | null;
+<<<<<<< Updated upstream
   openingTime?: string | null;
   closingTime?: string | null;
   slotDuration?: number;
@@ -27,6 +28,14 @@ type BusinessConfig = {
   website?: string | null;
   min_advance_hours?: number;
   max_advance_days?: number;
+=======
+  facebook: string | null;
+  website: string | null;
+  openingTime: string;
+  closingTime: string;
+  workingDays: string[];
+  slotDuration: number;
+>>>>>>> Stashed changes
 };
 
 type Service = {
@@ -380,6 +389,7 @@ export default function PublicBookingPage() {
 
   const allSlots = useMemo(() => {
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     const slotStep = business?.slotDuration || 30;
 
     if (!selectedDate) {
@@ -392,10 +402,15 @@ export default function PublicBookingPage() {
         }
         return fallbackSlots;
 =======
+=======
+>>>>>>> Stashed changes
     const buildFallbackSlots = () => {
       const fallbackSlots: string[] = [];
       for (let m = 9 * 60; m < 20 * 60; m += slotStep) {
         fallbackSlots.push(toTime(m));
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
       }
       return fallbackSlots;
@@ -407,6 +422,7 @@ export default function PublicBookingPage() {
 
     if (!hasWorkingHours) {
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
       const fallbackSlots: string[] = [];
       for (let h = 9; h < 20; h++) {
         for (let m = 0; m < 60; m += slotStep) {
@@ -414,6 +430,9 @@ export default function PublicBookingPage() {
         }
       }
       return fallbackSlots;
+=======
+      return buildFallbackSlots();
+>>>>>>> Stashed changes
 =======
       return buildFallbackSlots();
 >>>>>>> Stashed changes
