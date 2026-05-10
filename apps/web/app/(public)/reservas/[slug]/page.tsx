@@ -885,41 +885,45 @@ export default function PublicBookingPage() {
                     <h2 className="text-xl font-bold mb-6" style={{ fontFamily: "'Playfair Display', serif" }}>
                       Elige un servicio
                     </h2>
-                    <div className="space-y-3">
-                      {services.map((service) => (
-                        <div
-                          key={service.id}
-                          onClick={() => {
-                            setSelectedService(service);
-                            setStep(2);
-                          }}
-                          className={`p-4 rounded-xl cursor-pointer transition-all ${
-                            selectedService?.id === service.id 
-                              ? "ring-2" 
-                              : "hover:bg-white/10"
-                          }`}
-                          style={{ 
-                            backgroundColor: "rgba(255,255,255,0.05)",
-                            ...(selectedService?.id === service.id ? { borderColor: accentColor } : {}),
-                          }}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="font-medium">{service.name}</div>
-                              <div className="text-sm text-gray-400">{service.duration} min • {service.description}</div>
-                              {service.xp_value && (
-                                <div className="text-xs mt-1" style={{ color: accentColor }}>
-                                  +{service.xp_value} XP
-                                </div>
-                              )}
-                            </div>
-                            <div className="text-xl font-bold" style={{ color: accentColor }}>
-                              €{service.price}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    {services.length === 0 ? (
+                      <div className="text-center py-12 px-4">
+                        <div className="text-5xl mb-4">✂️</div>
+                        <h3 className="text-lg font-semibold text-gray-300 mb-2">
+                          Próximamente
+                        </h3>
+                        <p className="text-gray-400 text-sm max-w-xs mx-auto">
+                          {business?.name || "Este salón"} está configurando sus servicios.
+                          Volvé a consultar en unas horas.
+                        </p>
+                        {business?.phone && (
+                          <a 
+                            href={`tel:${business.phone}`}
+                            className="inline-block mt-4 px-4 py-2 rounded-full text-sm font-medium"
+                            style={{ backgroundColor: accentColor, color: "black" }}
+                          >
+                            📞 Llamar al salón
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {services.map((service) => (
+                          <ServiceCard
+                            key={service.id}
+                            name={service.name}
+                            duration={service.duration}
+                            price={service.price}
+                            description={service.description}
+                            xpValue={service.xp_value}
+                            accentColor={service.color || accentColor}
+                            onClick={() => {
+                              setSelectedService(service);
+                              setStep(2);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
