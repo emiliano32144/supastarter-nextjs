@@ -133,13 +133,13 @@ export const config = {
 				isFree: true,
 				hidden: true,
 			},
-			basico: {
+			normal: {
 				prices: [
 					{
 						type: "recurring",
-						productId: process.env.NEXT_PUBLIC_PRICE_ID_BASICO_MONTHLY as string,
+						productId: process.env.NEXT_PUBLIC_STRIPE_PRICE_NORMAL as string,
 						interval: "month",
-						amount: 19,
+						amount: 49.99,
 						currency: "EUR",
 					},
 				],
@@ -149,9 +149,9 @@ export const config = {
 				prices: [
 					{
 						type: "recurring",
-						productId: process.env.NEXT_PUBLIC_PRICE_ID_PRO_MONTHLY as string,
+						productId: process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO as string,
 						interval: "month",
-						amount: 40,
+						amount: 95,
 						currency: "EUR",
 					},
 				],
