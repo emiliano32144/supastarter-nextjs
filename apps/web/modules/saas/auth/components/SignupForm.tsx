@@ -113,6 +113,9 @@ export function SignupForm({ prefillEmail }: { prefillEmail?: string }) {
 				}
 
 				router.push(config.auth.redirectAfterSignIn);
+			} else {
+				// Con autoSignIn:true, el usuario ya tiene sesión. Redirigir directamente.
+				router.push(redirectPath);
 			}
 		} catch (e) {
 			console.error("[SignupForm] signup error", e);

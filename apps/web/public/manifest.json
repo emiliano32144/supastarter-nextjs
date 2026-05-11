@@ -33,16 +33,16 @@
   "categories": ["business", "productivity", "lifestyle"],
   "screenshots": [
     {
-      "src": "/screenshots/home.svg",
+      "src": "/screenshots/home.png",
       "sizes": "1280x720",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "form_factor": "wide",
       "label": "Página principal de reservas"
     },
     {
-      "src": "/screenshots/mobile.svg",
+      "src": "/screenshots/mobile.png",
       "sizes": "750x1334",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "form_factor": "narrow",
       "label": "Vista móvil de reservas"
     }

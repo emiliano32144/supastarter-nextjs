@@ -1,9 +1,15 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { PropsWithChildren } from "react";
 import "./globals.css";
 import "cropperjs/dist/cropper.css";
 import { config } from "@repo/config";
 import Script from "next/script";
+
+export const viewport: Viewport = {
+	themeColor: "#D4AF37",
+	width: "device-width",
+	initialScale: 1,
+};
 
 export const metadata: Metadata = {
 	title: {
@@ -26,7 +32,16 @@ export const metadata: Metadata = {
 	publisher: "FILO by Codetix",
 	robots: "index, follow",
 	manifest: "/manifest.json",
-	themeColor: "#D4AF37",
+	icons: {
+		icon: [
+			{ url: "/icons/icon.svg", type: "image/svg+xml", sizes: "any" },
+			{ url: "/icons/icon-192x192.png", type: "image/png", sizes: "192x192" },
+			{ url: "/icons/icon-512x512.png", type: "image/png", sizes: "512x512" },
+		],
+		apple: [
+			{ url: "/icons/icon-192x192.png", sizes: "192x192" },
+		],
+	},
 	openGraph: {
 		title: "FILO - Gestor de reservas para barberías y peluquerías",
 		description:
