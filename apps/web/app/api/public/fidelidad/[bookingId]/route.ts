@@ -40,39 +40,41 @@ export async function GET(
       .eq("id", booking.client_profile_id)
       .single();
 
-    // Obtener niveles de fidelización
+    // Obtener niveles de fidelización ordenados ASC para calcular progreso
     const { data: levels } = await supabase
       .from("loyalty_levels")
-      .select("id, name, min_xp, max_xp, color")
+      .select("id, name, min_xp, color, icon")
       .eq("organization_id", booking.organization_id)
       .order("min_xp", { ascending: true });
 
-    // Calcular nivel actual y siguiente
+    // Calcular nivel actual (más alto donde XP >= min_xp) y siguiente
     let currentLevel = null;
     let nextLevel = null;
     let progressPercent = 0;
 
-    if (profile && levels) {
-      for (let i = 0; i < levels.length; i++) {
-        const level = levels[i];
-        if (
-          profile.total_xp >= level.min_xp &&
-          (!level.max_xp || profile.total_xp < level.max_xp)
-        ) {
-          currentLevel = level;
+    if (profile && levels && levels.length > 0) {
+      // Recorrer de mayor a menor para encontrar el nivel más alto alcanzado
+      for (let i = levels.length - 1; i >= 0; i--) {
+        if ((profile.total_xp || 0) >= levels[i].min_xp) {
+          currentLevel = levels[i];
           nextLevel = levels[i + 1] || null;
           if (nextLevel) {
-            progressPercent = Math.min(
-              100,
-              Math.round(
-                ((profile.total_xp - level.min_xp) / (nextLevel.min_xp - level.min_xp)) * 100
-              )
-            );
+            const xpInLevel = (profile.total_xp || 0) - levels[i].min_xp;
+            const xpNeeded = nextLevel.min_xp - levels[i].min_xp;
+            progressPercent = Math.min(100, Math.round((xpInLevel / xpNeeded) * 100));
           } else {
             progressPercent = 100;
           }
           break;
         }
+      }
+      // Si no alcanza ningún nivel, usar el primero
+      if (!currentLevel) {
+        currentLevel = levels[0];
+        nextLevel = levels[1] || null;
+        progressPercent = nextLevel
+          ? Math.round(((profile.total_xp || 0) / nextLevel.min_xp) * 100)
+          : 0;
       }
     }
 

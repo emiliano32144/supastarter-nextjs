@@ -334,6 +334,15 @@ BEGIN
         ALTER TABLE bookings ADD COLUMN price DECIMAL(10,2);
         RAISE NOTICE 'Añadida: bookings.price';
     END IF;
+
+    -- reschedule_count (usado por reprogramar/route.ts — límite 1 reprogramación)
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'bookings' AND column_name = 'reschedule_count'
+    ) THEN
+        ALTER TABLE bookings ADD COLUMN reschedule_count INTEGER DEFAULT 0;
+        RAISE NOTICE 'Añadida: bookings.reschedule_count';
+    END IF;
 END $$;
 
 -- 4. services - xp_value (sistema de fidelidad - usado en /complete/route.ts)
@@ -350,6 +359,88 @@ END $$;
 
 -- Solo rellenar NULLs, NO machacar valores legitimos
 UPDATE services SET xp_value = 100 WHERE xp_value IS NULL;
+
+-- ============================================
+-- 5. business_config - campos de suscripción y fee de cancelación
+-- ============================================
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'business_config' AND column_name = 'plan'
+    ) THEN
+        ALTER TABLE business_config ADD COLUMN plan TEXT DEFAULT 'trial';
+        RAISE NOTICE 'Añadida: business_config.plan';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'business_config' AND column_name = 'trial_ends_at'
+    ) THEN
+        ALTER TABLE business_config ADD COLUMN trial_ends_at TIMESTAMPTZ;
+        RAISE NOTICE 'Añadida: business_config.trial_ends_at';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'business_config' AND column_name = 'stripe_customer_id'
+    ) THEN
+        ALTER TABLE business_config ADD COLUMN stripe_customer_id TEXT;
+        RAISE NOTICE 'Añadida: business_config.stripe_customer_id';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'business_config' AND column_name = 'stripe_subscription_id'
+    ) THEN
+        ALTER TABLE business_config ADD COLUMN stripe_subscription_id TEXT;
+        RAISE NOTICE 'Añadida: business_config.stripe_subscription_id';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'business_config' AND column_name = 'cancellation_fee_enabled'
+    ) THEN
+        ALTER TABLE business_config ADD COLUMN cancellation_fee_enabled BOOLEAN DEFAULT false;
+        RAISE NOTICE 'Añadida: business_config.cancellation_fee_enabled';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'business_config' AND column_name = 'cancellation_fee_amount'
+    ) THEN
+        ALTER TABLE business_config ADD COLUMN cancellation_fee_amount DECIMAL(10,2) DEFAULT 0.50;
+        RAISE NOTICE 'Añadida: business_config.cancellation_fee_amount';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'business_config' AND column_name = 'cancellation_fee_hours'
+    ) THEN
+        ALTER TABLE business_config ADD COLUMN cancellation_fee_hours INTEGER DEFAULT 24;
+        RAISE NOTICE 'Añadida: business_config.cancellation_fee_hours';
+    END IF;
+END $$;
+
+-- 6. bookings - campos de fee de cancelación
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'bookings' AND column_name = 'cancellation_fee_applied'
+    ) THEN
+        ALTER TABLE bookings ADD COLUMN cancellation_fee_applied BOOLEAN DEFAULT false;
+        RAISE NOTICE 'Añadida: bookings.cancellation_fee_applied';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'bookings' AND column_name = 'cancellation_fee_amount'
+    ) THEN
+        ALTER TABLE bookings ADD COLUMN cancellation_fee_amount DECIMAL(10,2) DEFAULT 0;
+        RAISE NOTICE 'Añadida: bookings.cancellation_fee_amount';
+    END IF;
+END $$;
 
 -- ============================================
 -- TRIGGERS updated_at PARA TABLAS EXISTENTES

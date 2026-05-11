@@ -15,10 +15,10 @@ export async function POST(
     const body = await request.json();
     const { client_email } = body;
 
-    // Buscar la reserva con datos completos
+    // Buscar la reserva
     const { data: booking, error: findError } = await supabase
       .from("bookings")
-      .select("*, services(name), professionals(name)")
+      .select("id, organization_id, client_name, client_email, date, start_time, price, service_id, professional_id, status")
       .eq("id", bookingId)
       .single();
 
@@ -37,10 +37,37 @@ export async function POST(
       );
     }
 
-    // Soft delete
+    // Obtener config del negocio para fee de cancelación
+    const { data: businessConfig } = await supabase
+      .from("business_config")
+      .select("cancellation_fee_enabled, cancellation_fee_amount, cancellation_fee_hours, timezone")
+      .eq("organization_id", booking.organization_id)
+      .single();
+
+    // Calcular si aplica fee
+    let cancellationFeeApplied = false;
+    let cancellationFeeAmount = 0;
+
+    if (businessConfig?.cancellation_fee_enabled) {
+      const appointmentDate = new Date(`${booking.date}T${booking.start_time}`);
+      const now = new Date();
+      const hoursUntil = (appointmentDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+      const feeHours = businessConfig.cancellation_fee_hours || 24;
+
+      if (hoursUntil < feeHours && hoursUntil > 0) {
+        cancellationFeeApplied = true;
+        cancellationFeeAmount = businessConfig.cancellation_fee_amount || 0.50;
+      }
+    }
+
+    // Soft delete (con fee si aplica)
     const { error: updateError } = await supabase
       .from("bookings")
-      .update({ status: "cancelled" })
+      .update({
+        status: "cancelled",
+        cancellation_fee_applied: cancellationFeeApplied,
+        cancellation_fee_amount: cancellationFeeAmount,
+      })
       .eq("id", bookingId);
 
     if (updateError) {
@@ -52,17 +79,16 @@ export async function POST(
 
     // Enviar email de cancelación al cliente
     try {
-      const { data: businessConfig } = await supabase
-        .from("business_config")
-        .select("business_name, phone, address, city, timezone")
-        .eq("organization_id", booking.organization_id)
-        .maybeSingle();
+      const [{ data: service }, { data: professional }] = await Promise.all([
+        booking.service_id ? supabase.from("services").select("name").eq("id", booking.service_id).maybeSingle() : Promise.resolve({ data: null }),
+        booking.professional_id ? supabase.from("professionals").select("name").eq("id", booking.professional_id).maybeSingle() : Promise.resolve({ data: null }),
+      ]);
 
       await sendCancellationEmail({
         clientName: booking.client_name,
         clientEmail: booking.client_email,
-        serviceName: booking.services?.name || 'Servicio',
-        professionalName: booking.professionals?.name || null,
+        serviceName: service?.name || 'Servicio',
+        professionalName: professional?.name || null,
         date: booking.date,
         time: booking.start_time,
         price: booking.price || 0,
@@ -70,12 +96,19 @@ export async function POST(
         businessPhone: businessConfig?.phone || undefined,
         businessAddress: businessConfig?.address ? `${businessConfig.address}${businessConfig.city ? `, ${businessConfig.city}` : ''}` : undefined,
         timezone: businessConfig?.timezone || 'Europe/Madrid',
+        cancellationFee: cancellationFeeApplied ? cancellationFeeAmount : undefined,
       });
     } catch (emailError) {
       console.error('❌ Error enviando email de cancelación:', emailError);
     }
 
-    return NextResponse.json({ success: true, message: "Reserva cancelada" });
+    return NextResponse.json({
+      success: true,
+      message: cancellationFeeApplied
+        ? `Reserva cancelada. Se aplicó un fee de €${cancellationFeeAmount.toFixed(2)} por cancelación tardía.`
+        : "Reserva cancelada",
+      cancellationFee: cancellationFeeApplied ? cancellationFeeAmount : null,
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

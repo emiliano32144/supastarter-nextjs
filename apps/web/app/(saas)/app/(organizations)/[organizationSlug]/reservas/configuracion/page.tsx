@@ -803,6 +803,57 @@ export default function ConfiguracionPage() {
           </div>
         </div>
 
+        {/* Fee de Cancelación Tardía */}
+        <div className="bg-white rounded-xl shadow-sm border p-6">
+          <h2 className="text-lg font-semibold mb-4">💸 Fee de Cancelación Tardía</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Protegé tu agenda cobrando un fee si un cliente cancela con poca antelación.
+            Este dinero es 100% para vos — FILO no se lleva comisión.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="fee_enabled"
+                checked={config.cancellation_fee_enabled || false}
+                onChange={(e) => setConfig({ ...config, cancellation_fee_enabled: e.target.checked })}
+                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label htmlFor="fee_enabled" className="text-sm font-medium text-gray-700">
+                Activar fee de cancelación
+              </label>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Monto del fee (€)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={config.cancellation_fee_amount || 0.50}
+                onChange={(e) => setConfig({ ...config, cancellation_fee_amount: Number(e.target.value) })}
+                disabled={!config.cancellation_fee_enabled}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Horas de anticipación mínima
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={config.cancellation_fee_hours || 24}
+                onChange={(e) => setConfig({ ...config, cancellation_fee_hours: Number(e.target.value) })}
+                disabled={!config.cancellation_fee_enabled}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+              />
+              <p className="text-xs text-gray-500 mt-1">Si cancela con menos de estas horas, aplica el fee</p>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       {/* Save Button */}

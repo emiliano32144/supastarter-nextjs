@@ -133,8 +133,15 @@ async function findOrganizationId(
 }
 
 /**
- * Mapear Price ID a Product ID
+ * Mapear Price ID a plan de FILO
  */
+function getPlanFromPriceId(priceId: string): string {
+  const planMap: Record<string, string> = {
+    [process.env.NEXT_PUBLIC_STRIPE_PRICE_NORMAL || '']: 'normal',
+    [process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO || '']: 'pro',
+  };
+  return planMap[priceId] || 'trial';
+}
 async function getProductIdFromPriceId(priceId: string): Promise<string | null> {
   try {
     const price = await stripe.prices.retrieve(priceId);
@@ -193,11 +200,26 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     type: "SUBSCRIPTION",
     customerId,
     subscriptionId,
-    productId: productId || priceId || "unknown",
+    productId: priceId || productId || "unknown",
     status: "active",
   });
 
   console.log("[Stripe Webhook] Purchase creado:", purchase?.id);
+
+  // Actualizar business_config con plan y datos de Stripe
+  if (organizationId && priceId) {
+    const plan = getPlanFromPriceId(priceId);
+    await supabase
+      .from("business_config")
+      .update({
+        plan,
+        trial_ends_at: null,
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscriptionId,
+      })
+      .eq("organization_id", organizationId);
+    console.log("[Stripe Webhook] business_config actualizado:", organizationId, "plan:", plan);
+  }
 }
 
 /**
@@ -256,6 +278,21 @@ async function handleSubscriptionCancelled(subscription: Stripe.Subscription) {
     id: purchase.id,
     status: "cancelled",
   });
+
+  // Actualizar business_config: volver a trial
+  if (purchase.organizationId) {
+    const trialEnd = new Date();
+    trialEnd.setDate(trialEnd.getDate() + 3); // 3 días de gracia post-cancelación
+    await supabase
+      .from("business_config")
+      .update({
+        plan: 'trial',
+        trial_ends_at: trialEnd.toISOString(),
+        stripe_subscription_id: null,
+      })
+      .eq("organization_id", purchase.organizationId);
+    console.log("[Stripe Webhook] business_config revertido a trial:", purchase.organizationId);
+  }
 
   console.log("[Stripe Webhook] Purchase actualizado a cancelled:", purchase.id);
 }

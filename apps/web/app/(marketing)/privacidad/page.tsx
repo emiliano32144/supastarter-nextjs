@@ -18,6 +18,7 @@ export default function PrivacidadPage() {
 					<p className="text-white/70 leading-relaxed">
 						El responsable del tratamiento de sus datos personales es <strong>Codetix</strong>,
 						con domicilio en España y correo electrónico de contacto: reservas@codetix.es.
+						Para cualquier consulta sobre protección de datos, puede contactarnos en la misma dirección.
 					</p>
 				</section>
 

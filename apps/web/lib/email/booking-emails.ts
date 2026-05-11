@@ -42,6 +42,7 @@ export type BookingEmailData = {
   businessAddress?: string;
   bookingId?: string;
   timezone?: string;
+  cancellationFee?: number;
 };
 
 type BookingNotificationEmailData = BookingEmailData & {
@@ -322,9 +323,12 @@ export async function sendCancellationEmail(data: BookingEmailData) {
     time,
     businessName,
     timezone = 'Europe/Madrid',
+    cancellationFee,
   } = data;
 
   const formattedDate = formatDateTimeInTz(date, time, timezone);
+  const feeHtml = cancellationFee ? `
+        <tr><td style="padding:8px 0;color:#888;font-size:13px;">Fee por cancelación tardía</td><td style="padding:8px 0;color:#dc2626;font-size:14px;text-align:right;font-weight:600;">€${cancellationFee.toFixed(2)}</td></tr>` : '';
 
   try {
     const resend = getResend();
@@ -350,7 +354,7 @@ export async function sendCancellationEmail(data: BookingEmailData) {
       <div style="background:#f8f8f8;border-radius:8px;padding:20px;margin-bottom:25px;">
         <table style="width:100%;border-collapse:collapse;">
           <tr><td style="padding:8px 0;color:#888;font-size:13px;">Servicio</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${serviceName}</td></tr>
-          <tr><td style="padding:8px 0;color:#888;font-size:13px;">Fecha y hora</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${formattedDate}</td></tr>
+          <tr><td style="padding:8px 0;color:#888;font-size:13px;">Fecha y hora</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${formattedDate}</td></tr>${feeHtml}
         </table>
       </div>
       <p style="color:#666;margin:0 0 20px;">Si querés volver a reservar, podés hacerlo desde nuestra página:</p>

@@ -58,6 +58,23 @@ export async function POST(
       }
     }
 
+    // Verificar si ya existe config previa (para no machacar trial si ya está activo)
+    const { data: existingConfig } = await supabase
+      .from("business_config")
+      .select("plan, trial_ends_at")
+      .eq("organization_id", organizationId)
+      .single();
+
+    // Si no hay plan previo, iniciar trial de 14 días
+    let plan = body.plan || existingConfig?.plan || 'trial';
+    let trialEndsAt = existingConfig?.trial_ends_at || null;
+    if (!existingConfig) {
+      const trialEnd = new Date();
+      trialEnd.setDate(trialEnd.getDate() + 14);
+      plan = 'trial';
+      trialEndsAt = trialEnd.toISOString();
+    }
+
     // Preparar datos
     const configData = {
       organization_id: organizationId,
@@ -81,6 +98,11 @@ export async function POST(
       min_advance_hours: body.min_advance_hours,
       max_advance_days: body.max_advance_days,
       slot_duration: body.slot_duration,
+      plan,
+      trial_ends_at: trialEndsAt,
+      cancellation_fee_enabled: body.cancellation_fee_enabled ?? false,
+      cancellation_fee_amount: body.cancellation_fee_amount ?? 0.50,
+      cancellation_fee_hours: body.cancellation_fee_hours ?? 24,
       updated_at: new Date().toISOString(),
     };
 
