@@ -40,7 +40,7 @@ export async function POST(
     // Obtener config del negocio para fee de cancelación
     const { data: businessConfig } = await supabase
       .from("business_config")
-      .select("cancellation_fee_enabled, cancellation_fee_amount, cancellation_fee_hours, timezone")
+      .select("cancellation_fee_enabled, cancellation_fee_amount, cancellation_fee_hours, timezone, business_name, phone, address, city")
       .eq("organization_id", booking.organization_id)
       .single();
 
