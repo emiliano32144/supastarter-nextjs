@@ -36,7 +36,7 @@ export async function GET(
     // Obtener perfil de fidelización
     const { data: profile } = await supabase
       .from("client_profiles")
-      .select("id, name, total_xp, current_level_id, total_visits, last_visit")
+      .select("id, name, total_xp, current_level, level_name, total_visits, last_visit")
       .eq("id", booking.client_profile_id)
       .single();
 
@@ -79,7 +79,7 @@ export async function GET(
     // Obtener recompensas disponibles
     const { data: rewards } = await supabase
       .from("earned_rewards")
-      .select("id, name, description, xp_cost, status")
+      .select("id, reward_type, reward_value, reward_description, status, expires_at")
       .eq("client_profile_id", booking.client_profile_id)
       .eq("status", "available");
 

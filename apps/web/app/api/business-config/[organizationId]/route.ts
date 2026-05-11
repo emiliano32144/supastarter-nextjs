@@ -77,6 +77,7 @@ export async function POST(
       instagram_url: body.instagram_url || null,
       facebook_url: body.facebook_url || null,
       website_url: body.website_url || null,
+      timezone: body.timezone || 'Europe/Madrid',
       min_advance_hours: body.min_advance_hours,
       max_advance_days: body.max_advance_days,
       slot_duration: body.slot_duration,

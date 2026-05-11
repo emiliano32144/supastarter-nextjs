@@ -126,12 +126,19 @@ export async function POST(
     }
 
     // Verificar blocked_slots
-    const { data: blockedSlots } = await supabase
+    let blockedQuery = supabase
       .from("blocked_slots")
       .select("*")
       .eq("organization_id", booking.organization_id)
-      .eq("date", new_date)
-      .or("professional_id.eq." + (booking.professional_id || "NULL") + ",professional_id.is.null");
+      .eq("date", new_date);
+
+    if (booking.professional_id) {
+      blockedQuery = blockedQuery.or(`professional_id.eq.${booking.professional_id},professional_id.is.null`);
+    } else {
+      blockedQuery = blockedQuery.is("professional_id", null);
+    }
+
+    const { data: blockedSlots } = await blockedQuery;
 
     for (const slot of blockedSlots || []) {
       if (!slot.start_time && !slot.end_time) {

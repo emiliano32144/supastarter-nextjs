@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import {
   sendBookingConfirmationEmail,
-  sendBookingNotificationEmail,
+  sendBusinessNotificationEmail,
 } from "../../../../../../lib/email/booking-emails";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -204,7 +204,7 @@ export async function POST(
 
     if (businessConfig?.email) {
       try {
-        const notifyResult = await sendBookingNotificationEmail({
+        const notifyResult = await sendBusinessNotificationEmail({
           clientName: client_name,
           clientEmail: client_email,
           serviceName: service?.name || 'Servicio',

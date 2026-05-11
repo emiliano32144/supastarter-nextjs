@@ -40,6 +40,9 @@ const formSchema = z.object({
 	email: z.string().email(),
 	name: z.string().min(1),
 	password: z.string(),
+	terms: z.boolean().refine((val) => val === true, {
+		message: "Debes aceptar los términos de servicio y la política de privacidad",
+	}),
 });
 
 export function SignupForm({ prefillEmail }: { prefillEmail?: string }) {
@@ -59,6 +62,7 @@ export function SignupForm({ prefillEmail }: { prefillEmail?: string }) {
 			name: "",
 			email: prefillEmail ?? email ?? "",
 			password: "",
+			terms: false,
 		},
 	});
 
@@ -68,8 +72,15 @@ export function SignupForm({ prefillEmail }: { prefillEmail?: string }) {
 		? `/organization-invitation/${invitationId}`
 		: (redirectTo ?? config.auth.redirectAfterSignIn);
 
-	const onSubmit = form.handleSubmit(async ({ email, password, name }) => {
+	const onSubmit = form.handleSubmit(async ({ email, password, name, terms }) => {
 		console.log("[SignupForm] submit start", email);
+		
+		if (!terms) {
+			form.setError("terms", {
+				message: "Debes aceptar los términos de servicio y la política de privacidad",
+			});
+			return;
+		}
 		
 		try {
 			const { error } = await (config.auth.enablePasswordLogin
@@ -252,6 +263,29 @@ export function SignupForm({ prefillEmail }: { prefillEmail?: string }) {
 									)}
 								/>
 							)}
+
+						<FormField
+							control={form.control}
+							name="terms"
+							render={({ field }) => (
+								<FormItem className="flex flex-row items-start space-x-3 space-y-0 py-2">
+									<FormControl>
+										<input
+											type="checkbox"
+											checked={field.value}
+											onChange={field.onChange}
+											className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+										/>
+									</FormControl>
+									<div className="space-y-1 leading-none">
+										<FormLabel className="text-sm font-normal">
+											Acepto los <Link href="/terminos" target="_blank" className="text-[#D4AF37] hover:underline">términos de servicio</Link> y la <Link href="/privacidad" target="_blank" className="text-[#D4AF37] hover:underline">política de privacidad</Link>
+										</FormLabel>
+										<FormMessage />
+									</div>
+								</FormItem>
+							)}
+						/>
 
 						<Button type="submit" loading={form.formState.isSubmitting}>
 							{t("auth.signup.submit")}

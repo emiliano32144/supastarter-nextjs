@@ -28,11 +28,11 @@ export function Footer() {
 				</div>
 
 				<div className="flex flex-col gap-2">
-					<LocaleLink href="/legal/privacy-policy" className="block">
+					<LocaleLink href="/privacidad" className="block">
 						Política de privacidad
 					</LocaleLink>
 
-					<LocaleLink href="/legal/terms" className="block">
+					<LocaleLink href="/terminos" className="block">
 						Términos y condiciones
 					</LocaleLink>
 				</div>
