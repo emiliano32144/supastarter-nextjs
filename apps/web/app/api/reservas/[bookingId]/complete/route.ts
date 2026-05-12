@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { auth } from "@repo/auth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -21,6 +22,21 @@ export async function POST(
 
     if (bookingError || !booking) {
       return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
+    }
+
+    // Verificar autenticación y ownership
+    const session = await auth.api.getSession({ headers: request.headers });
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+    const { data: membership } = await supabase
+      .from("member")
+      .select("id")
+      .eq("userId", session.user.id)
+      .eq("organizationId", booking.organization_id)
+      .maybeSingle();
+    if (!membership) {
+      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
     }
 
     // 2. Actualizar estado a completed

@@ -1,9 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { auth } from "@repo/auth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+async function verifyOwnership(request: NextRequest, organizationId: string) {
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session) {
+    return { error: "No autorizado", status: 401 };
+  }
+  const { data: membership } = await supabase
+    .from("member")
+    .select("id")
+    .eq("userId", session.user.id)
+    .eq("organizationId", organizationId)
+    .maybeSingle();
+  if (!membership) {
+    return { error: "Acceso denegado", status: 403 };
+  }
+  return null;
+}
 
 // GET - Obtener configuración
 export async function GET(
@@ -12,6 +30,9 @@ export async function GET(
 ) {
   try {
     const { organizationId } = await params;
+
+    const authError = await verifyOwnership(request, organizationId);
+    if (authError) return NextResponse.json({ error: authError.error }, { status: authError.status });
 
     const { data, error } = await supabase
       .from("business_config")
@@ -39,6 +60,10 @@ export async function POST(
 ) {
   try {
     const { organizationId } = await params;
+
+    const authError = await verifyOwnership(request, organizationId);
+    if (authError) return NextResponse.json({ error: authError.error }, { status: authError.status });
+
     const body = await request.json();
 
     // Verificar si el slug ya existe (para otra organización)

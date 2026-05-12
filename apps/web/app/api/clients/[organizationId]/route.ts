@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { auth } from "@repo/auth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -11,6 +12,24 @@ export async function GET(
 ) {
   try {
     const { organizationId } = await params;
+
+    // Verificar autenticación
+    const session = await auth.api.getSession({ headers: request.headers });
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    // Verificar que el usuario pertenece a la organización
+    const { data: membership } = await supabase
+      .from("member")
+      .select("id")
+      .eq("userId", session.user.id)
+      .eq("organizationId", organizationId)
+      .maybeSingle();
+
+    if (!membership) {
+      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
+    }
 
     // Obtener todos los clientes de esta organización
     const { data: clients, error } = await supabase

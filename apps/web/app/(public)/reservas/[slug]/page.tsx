@@ -337,20 +337,30 @@ export default function PublicBookingPage() {
   const hasWorkingHours = workingHours.length > 0;
   const serviceDuration = selectedService?.duration || 30;
   const slotStep = business?.slotDuration || 30; // paso del picker: 15, 30, 60 min según config del negocio
+  const maxDays = business?.max_advance_days || 14;
+  const minHours = business?.min_advance_hours || 2;
+
+  // Devuelve true si una fecha+hora está dentro de minHours desde ahora
+  function isWithinMinHours(dateString: string, timeString?: string): boolean {
+    const now = new Date();
+    const [year, month, day] = dateString.split("-").map(Number);
+    const [hours, minutes] = timeString ? timeString.split(":").map(Number) : [23, 59];
+    const slotDate = new Date(year, month - 1, day, hours, minutes);
+    const diffMs = slotDate.getTime() - now.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+    return diffHours < minHours;
+  }
 
   const dates = (() => {
-    const maxDays = business?.max_advance_days || 14;
-    const minHours = business?.min_advance_hours || 2;
-    
     if (!hasWorkingHours) {
       const fallbackDates: string[] = [];
       for (let i = 1; i <= maxDays; i++) {
         const date = new Date();
         date.setDate(date.getDate() + i);
         const dateString = formatDateLocal(date);
-        if (!isDateBlocked(dateString, selectedProfessional?.id ?? null)) {
-          fallbackDates.push(dateString);
-        }
+        if (isDateBlocked(dateString, selectedProfessional?.id ?? null)) continue;
+        if (isWithinMinHours(dateString)) continue;
+        fallbackDates.push(dateString);
       }
       return fallbackDates;
     }
@@ -372,8 +382,10 @@ export default function PublicBookingPage() {
 
       // Excluir fechas bloqueadas (vacaciones, feriados, etc.)
       const blocked = isDateBlocked(dateString, selectedProfessional?.id ?? null);
+      // Excluir fechas dentro de minHours de anticipación
+      const tooSoon = isWithinMinHours(dateString);
 
-      if (isWorkingDay && !blocked) availableDates.push(dateString);
+      if (isWorkingDay && !blocked && !tooSoon) availableDates.push(dateString);
     }
     return availableDates;
   })();
@@ -464,20 +476,26 @@ export default function PublicBookingPage() {
       return set;
     }
     const today = formatDateLocal(new Date());
-    if (selectedDate !== today) {
-      return set;
-    }
     const now = new Date();
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
     for (const slot of allSlots) {
       const [hours, mins] = slot.split(":").map(Number);
       const slotMinutes = hours * 60 + mins;
-      if (slotMinutes < nowMinutes) {
+
+      // Bloquear slots del día de hoy que ya pasaron
+      if (selectedDate === today && slotMinutes < nowMinutes) {
+        set.add(slot);
+        continue;
+      }
+
+      // Bloquear slots dentro de minHours de anticipación
+      if (isWithinMinHours(selectedDate, slot)) {
         set.add(slot);
       }
     }
     return set;
-  }, [selectedDate, allSlots]);
+  }, [selectedDate, allSlots, minHours]);
 
   useEffect(() => {
     if (!selectedDate || !selectedTime) return;

@@ -1,10 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { auth } from "@repo/auth";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
+
+async function verifyOwnership(request: NextRequest, organizationId: string) {
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session) {
+    return { error: "No autorizado", status: 401 };
+  }
+  const { data: membership } = await supabase
+    .from("member")
+    .select("id")
+    .eq("userId", session.user.id)
+    .eq("organizationId", organizationId)
+    .maybeSingle();
+  if (!membership) {
+    return { error: "Acceso denegado", status: 403 };
+  }
+  return null;
+}
 
 // GET /api/reservas/blocked-slots?organization_id=X[&from=YYYY-MM-DD&to=YYYY-MM-DD&professional_id=Y]
 export async function GET(request: NextRequest) {
@@ -21,6 +39,9 @@ export async function GET(request: NextRequest) {
         { status: 400 },
       );
     }
+
+    const authError = await verifyOwnership(request, organizationId);
+    if (authError) return NextResponse.json({ error: authError.error }, { status: authError.status });
 
     let query = supabase
       .from("blocked_slots")
@@ -63,6 +84,9 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+
+    const authError = await verifyOwnership(request, organization_id);
+    if (authError) return NextResponse.json({ error: authError.error }, { status: authError.status });
 
     // Validar que si viene start_time también venga end_time y viceversa
     if ((start_time && !end_time) || (!start_time && end_time)) {
@@ -114,6 +138,20 @@ export async function DELETE(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: "id es requerido" }, { status: 400 });
     }
+
+    // Obtener organization_id del slot antes de borrar
+    const { data: slot } = await supabase
+      .from("blocked_slots")
+      .select("organization_id")
+      .eq("id", id)
+      .single();
+
+    if (!slot) {
+      return NextResponse.json({ error: "Slot no encontrado" }, { status: 404 });
+    }
+
+    const authError = await verifyOwnership(request, slot.organization_id);
+    if (authError) return NextResponse.json({ error: authError.error }, { status: authError.status });
 
     const { error } = await supabase
       .from("blocked_slots")

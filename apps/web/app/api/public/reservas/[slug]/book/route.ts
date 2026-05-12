@@ -184,7 +184,6 @@ export async function POST(
 
     // Enviar email de confirmación
     try {
-      console.log('📧 Intentando enviar email a:', client_email);
       const emailResult = await sendBookingConfirmationEmail({
         clientName: client_name,
         clientEmail: client_email,
@@ -197,8 +196,8 @@ export async function POST(
         businessPhone: businessConfig?.phone || undefined,
         businessAddress: businessConfig?.address ? `${businessConfig.address}${businessConfig.city ? `, ${businessConfig.city}` : ''}` : undefined,
         bookingId: booking.id,
+        timezone: businessConfig?.timezone || 'Europe/Madrid',
       });
-      console.log('📧 Resultado del email:', emailResult);
     } catch (emailError) {
       console.error('❌ Error enviando email:', emailError);
     }
@@ -217,8 +216,8 @@ export async function POST(
           businessPhone: businessConfig?.phone || undefined,
           businessAddress: businessConfig?.address ? `${businessConfig.address}${businessConfig.city ? `, ${businessConfig.city}` : ''}` : undefined,
           businessEmail: businessConfig.email,
+          timezone: businessConfig?.timezone || 'Europe/Madrid',
         });
-        console.log('📧 Notificación peluquero:', notifyResult);
       } catch (notifyError) {
         console.error('❌ Error notificación peluquero:', notifyError);
       }
