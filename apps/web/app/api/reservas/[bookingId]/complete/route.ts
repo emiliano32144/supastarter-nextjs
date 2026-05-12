@@ -55,17 +55,20 @@ export async function POST(
     let levelUp = false;
 
     if (booking.client_profile_id) {
-      // Obtener el servicio para obtener xp_value
-      let xpValue = 100; // Valor por defecto
+      let xpValue = 100;
+      let serviceName = "Servicio";
       if (booking.service_id) {
         const { data: service } = await supabase
           .from("services")
           .select("xp_value, name, price")
           .eq("id", booking.service_id)
-          .single();
+          .maybeSingle();
 
         if (service?.xp_value) {
           xpValue = service.xp_value;
+        }
+        if (service?.name) {
+          serviceName = service.name;
         }
       }
 
@@ -74,7 +77,7 @@ export async function POST(
         .from("client_profiles")
         .select("*")
         .eq("id", booking.client_profile_id)
-        .single();
+        .maybeSingle();
 
       if (profile) {
         const newTotalXp = (profile.total_xp || 0) + xpValue;
@@ -117,19 +120,6 @@ export async function POST(
               levelName = level.name;
               break;
             }
-          }
-        }
-
-        // Obtener nombre del servicio para el historial
-        let serviceName = "Servicio";
-        if (booking.service_id) {
-          const { data: service } = await supabase
-            .from("services")
-            .select("name")
-            .eq("id", booking.service_id)
-            .single();
-          if (service) {
-            serviceName = service.name;
           }
         }
 

@@ -42,6 +42,7 @@
 		"clsx": "^2.1.1",
 		"cropperjs": "1.6.2",
 		"date-fns": "^4.1.0",
+		"date-fns-tz": "^3.2.0",
 		"deepmerge": "^4.3.1",
 		"es-toolkit": "^1.41.0",
 		"fumadocs-core": "^16.0.11",

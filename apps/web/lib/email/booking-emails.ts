@@ -1,7 +1,7 @@
 import { Resend } from 'resend';
 
 // Helper: formatear fecha + hora en timezone del negocio
-function formatDateTimeInTz(dateStr: string, timeStr: string, tz: string = 'Europe/Madrid') {
+function formatDateTimeInTz(dateStr: string, timeStr: string, tz = 'Europe/Madrid') {
   try {
     const [year, month, day] = dateStr.split('-').map(Number);
     const [hour, minute] = (timeStr || '00:00').split(':').map(Number);
@@ -156,6 +156,108 @@ export async function sendBookingConfirmationEmail(data: BookingEmailData) {
   }
 }
 
+export type RescheduleEmailData = BookingEmailData & {
+	previousDate: string;
+	previousTime: string;
+};
+
+/** Email tras reprogramación (no usar confirmación inicial). */
+export async function sendRescheduleEmail(data: RescheduleEmailData) {
+	const {
+		clientName,
+		clientEmail,
+		serviceName,
+		professionalName,
+		date,
+		time,
+		price,
+		businessName,
+		businessPhone,
+		businessAddress,
+		timezone = "Europe/Madrid",
+		previousDate,
+		previousTime,
+	} = data;
+
+	const formattedNew = formatDateTimeInTz(date, time, timezone);
+	const formattedPrev = formatDateTimeInTz(previousDate, previousTime, timezone);
+	const links = clientPortalLinks(data);
+
+	const actionButtons = [];
+	if (links.misReservas) {
+		actionButtons.push(
+			`<a href="${links.misReservas}" style="display:inline-block;padding:10px 18px;background:#1a1a1a;color:#D4AF37;text-decoration:none;border-radius:8px;font-size:13px;font-weight:600;margin-right:8px;">📅 Ver mis reservas</a>`,
+		);
+	}
+	if (links.cancelar) {
+		actionButtons.push(
+			`<a href="${links.cancelar}" style="display:inline-block;padding:10px 18px;background:#dc2626;color:#fff;text-decoration:none;border-radius:8px;font-size:13px;font-weight:600;">✗ Cancelar</a>`,
+		);
+	}
+
+	try {
+		const resend = getResend();
+		const { data: emailData, error } = await resend.emails.send({
+			from: `${businessName} <reservas@codetix.es>`,
+			to: clientEmail,
+			subject: `📅 Cita reprogramada - ${businessName}`,
+			html: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f5f5;margin:0;padding:20px;">
+  <div style="max-width:500px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+    <div style="background:linear-gradient(135deg,#1a1a1a,#333);padding:30px;text-align:center;">
+      <h1 style="color:#D4AF37;margin:0;font-size:24px;">✂️ ${businessName}</h1>
+      <p style="color:#fff;margin:10px 0 0;font-size:14px;">Cita reprogramada</p>
+    </div>
+    <div style="padding:30px;">
+      <p style="color:#333;margin:0 0 20px;">Hola <strong>${clientName}</strong>,</p>
+      <p style="color:#666;margin:0 0 25px;">Tu cita fue <strong>reprogramada</strong>. Ya no uses la fecha anterior.</p>
+      <div style="background:#fff7ed;border-radius:8px;padding:16px;margin-bottom:16px;border-left:4px solid #f59e0b;">
+        <p style="margin:0 0 8px;font-size:12px;color:#92400e;text-transform:uppercase;font-weight:700;">Antes</p>
+        <p style="margin:0;font-size:15px;color:#78350f;">${formattedPrev}</p>
+      </div>
+      <div style="background:#f8f8f8;border-radius:8px;padding:20px;margin-bottom:25px;">
+        <p style="margin:0 0 8px;font-size:12px;color:#15803d;text-transform:uppercase;font-weight:700;">Nueva cita</p>
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="padding:8px 0;color:#888;font-size:13px;">Servicio</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${serviceName}</td></tr>
+          <tr><td style="padding:8px 0;color:#888;font-size:13px;">Fecha y hora</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${formattedNew}</td></tr>
+          ${professionalName ? `<tr><td style="padding:8px 0;color:#888;font-size:13px;">Profesional</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${professionalName}</td></tr>` : ""}
+          <tr><td style="padding:8px 0;color:#888;font-size:13px;">Precio</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${price.toFixed(2)} €</td></tr>
+        </table>
+      </div>
+      ${businessPhone || businessAddress ? `<div style="background:#f8f8f8;border-radius:8px;padding:15px;margin-bottom:25px;">
+        ${businessPhone ? `<p style="margin:4px 0;font-size:13px;color:#666;">📞 ${businessPhone}</p>` : ""}
+        ${businessAddress ? `<p style="margin:4px 0;font-size:13px;color:#666;">📍 ${businessAddress}</p>` : ""}
+      </div>` : ""}
+      <div style="margin-bottom:25px;">
+        <div>${actionButtons.join("")}</div>
+      </div>
+      <p style="color:#999;font-size:12px;text-align:center;margin-top:20px;">Solo se permite una reprogramación por reserva.</p>
+    </div>
+    <div style="background:#1a1a1a;padding:20px;text-align:center;">
+      <p style="color:#888;font-size:12px;margin:0;">filo by Codetix — reservas@codetix.es</p>
+    </div>
+  </div>
+</body>
+</html>`,
+		});
+
+		if (error) {
+			console.error("Error enviando email de reprogramación:", error);
+			return { success: false, error };
+		}
+
+		return { success: true, data: emailData };
+	} catch (err) {
+		console.error("Error en sendRescheduleEmail:", err);
+		return { success: false, error: err };
+	}
+}
+
 export async function sendBookingReminderEmail(data: BookingEmailData) {
   const {
     clientName,
@@ -211,6 +313,7 @@ export async function sendBookingReminderEmail(data: BookingEmailData) {
           <tr><td style="padding:8px 0;color:#888;font-size:13px;">Servicio</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${serviceName}</td></tr>
           <tr><td style="padding:8px 0;color:#888;font-size:13px;">Fecha y hora</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${formattedDate}</td></tr>
           ${professionalName ? `<tr><td style="padding:8px 0;color:#888;font-size:13px;">Profesional</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${professionalName}</td></tr>` : ''}
+          <tr><td style="padding:8px 0;color:#888;font-size:13px;">Precio</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${price.toFixed(2)} €</td></tr>
         </table>
       </div>
       ${businessPhone || businessAddress ? `<div style="background:#f8f8f8;border-radius:8px;padding:15px;margin-bottom:25px;">
@@ -265,7 +368,7 @@ export async function sendBusinessNotificationEmail(data: BookingNotificationEma
   try {
     const resend = getResend();
     const { data: emailData, error } = await resend.emails.send({
-      from: `filo <reservas@codetix.es>`,
+      from: "filo <reservas@codetix.es>",
       to: businessEmail,
       subject: `📅 Nueva reserva - ${clientName}`,
       html: `<!DOCTYPE html>

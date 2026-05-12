@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendBookingConfirmationEmail } from "../../../../../../lib/email/booking-emails";
+import { z } from "zod";
+import { sendRescheduleEmail } from "../../../../../../lib/email/booking-emails";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+const reprogramarBodySchema = z.object({
+	new_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+	new_start_time: z.string().min(4).max(12),
+	client_email: z.string().email().max(320),
+});
 
 export async function GET(
   request: NextRequest,
@@ -19,11 +26,16 @@ export async function GET(
       return NextResponse.json({ error: "Email requerido" }, { status: 400 });
     }
 
+    const emailParsed = z.string().email().max(320).safeParse(email);
+    if (!emailParsed.success) {
+      return NextResponse.json({ error: "Email inválido" }, { status: 400 });
+    }
+
     const { data: booking, error } = await supabase
       .from("bookings")
       .select("id, organization_id, client_email, client_name, service_id, date, start_time, reschedule_count, status")
       .eq("id", bookingId)
-      .single();
+      .maybeSingle();
 
     if (error || !booking) {
       return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
@@ -62,14 +74,21 @@ export async function POST(
 ) {
   try {
     const { bookingId } = await params;
-    const body = await request.json();
-    const { new_date, new_start_time, client_email } = body;
-
-    // Validar campos requeridos
-    if (!new_date || !new_start_time || !client_email) {
+    const rawBody = await request.json();
+    const parsed = reprogramarBodySchema.safeParse(rawBody);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Faltan campos requeridos: new_date, new_start_time, client_email" },
-        { status: 400 }
+        { error: "Datos inválidos", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+    const { new_date, new_start_time, client_email } = parsed.data;
+
+    const timeNorm = new_start_time.trim().slice(0, 5);
+    if (!/^([01]?\d|2[0-3]):([0-5]\d)$/.test(timeNorm)) {
+      return NextResponse.json(
+        { error: "Formato de hora inválido (usar HH:MM)" },
+        { status: 400 },
       );
     }
 
@@ -78,7 +97,7 @@ export async function POST(
       .from("bookings")
       .select("id, organization_id, client_email, client_name, service_id, professional_id, date, start_time, end_time, price, status, reschedule_count")
       .eq("id", bookingId)
-      .single();
+      .maybeSingle();
 
     if (bookingError || !booking) {
       return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
@@ -113,22 +132,31 @@ export async function POST(
     ]);
 
     // Calcular nueva hora de fin
-    const [hours, minutes] = new_start_time.split(":").map(Number);
+    const [hours, minutes] = timeNorm.split(":").map(Number);
     const startDate = new Date();
     startDate.setHours(hours, minutes, 0, 0);
     const endDate = new Date(startDate.getTime() + (service?.duration || 30) * 60000);
     const new_end_time = `${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}`;
 
     // Verificar disponibilidad del nuevo slot
-    const { data: existingBookings } = await supabase
+    let availQuery = supabase
       .from("bookings")
       .select("id")
       .eq("organization_id", booking.organization_id)
       .eq("date", new_date)
-      .eq("professional_id", booking.professional_id)
       .neq("status", "cancelled")
       .neq("id", bookingId)
-      .or(`and(start_time.lte.${new_start_time},end_time.gt.${new_start_time}),and(start_time.lt.${new_end_time},end_time.gte.${new_end_time})`);
+      .or(
+        `and(start_time.lte.${timeNorm},end_time.gt.${timeNorm}),and(start_time.lt.${new_end_time},end_time.gte.${new_end_time})`,
+      );
+
+    if (booking.professional_id) {
+      availQuery = availQuery.eq("professional_id", booking.professional_id);
+    } else {
+      availQuery = availQuery.is("professional_id", null);
+    }
+
+    const { data: existingBookings } = await availQuery;
 
     if (existingBookings && existingBookings.length > 0) {
       return NextResponse.json(
@@ -161,8 +189,8 @@ export async function POST(
       }
       if (slot.start_time && slot.end_time) {
         if (
-          new_start_time >= slot.start_time &&
-          new_start_time < slot.end_time
+          timeNorm >= slot.start_time &&
+          timeNorm < slot.end_time
         ) {
           return NextResponse.json(
             { error: "El salón no atiende en ese horario (bloqueado)" },
@@ -177,29 +205,33 @@ export async function POST(
       .from("bookings")
       .update({
         date: new_date,
-        start_time: new_start_time,
+        start_time: timeNorm,
         end_time: new_end_time,
         reschedule_count: (booking.reschedule_count || 0) + 1,
         reminder_sent: false,
       })
       .eq("id", bookingId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (updateError) {
       console.error("Error reprogramando:", updateError);
       return NextResponse.json({ error: "Error al reprogramar" }, { status: 500 });
     }
 
+    if (!updatedBooking) {
+      return NextResponse.json({ error: "Error al reprogramar" }, { status: 500 });
+    }
+
     // Enviar email de confirmación del cambio
     try {
-      await sendBookingConfirmationEmail({
+      await sendRescheduleEmail({
         clientName: booking.client_name,
         clientEmail: booking.client_email,
         serviceName: service?.name || "Servicio",
         professionalName: professional?.name || null,
         date: new_date,
-        time: new_start_time,
+        time: timeNorm,
         price: booking.price || 0,
         businessName: business?.business_name || "Negocio",
         businessPhone: business?.phone || undefined,
@@ -208,6 +240,8 @@ export async function POST(
           : undefined,
         bookingId,
         timezone: business?.timezone || "Europe/Madrid",
+        previousDate: booking.date,
+        previousTime: String(booking.start_time ?? ""),
       });
     } catch (emailError) {
       console.error("❌ Error enviando email de reprogramación:", emailError);

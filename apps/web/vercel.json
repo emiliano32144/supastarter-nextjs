@@ -2,5 +2,11 @@
   "framework": "nextjs",
   "buildCommand": "cd ../.. && pnpm install && pnpm build",
   "outputDirectory": ".next",
-  "regions": ["iad1"]
+  "regions": ["iad1"],
+  "crons": [
+    {
+      "path": "/api/cron/booking-reminders",
+      "schedule": "0 9 * * *"
+    }
+  ]
 }

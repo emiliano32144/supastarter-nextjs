@@ -34,10 +34,10 @@ export const listBookings = protectedProcedure
     .input(z.object({
         page: z.number().int().min(1).default(1),
         limit: z.number().int().min(1).max(100).default(20),
-        sortBy: z.string().default('created_at'),
+        sortBy: z.string().max(64).regex(/^[a-zA-Z0-9_]+$/).default('created_at'),
         sortOrder: z.enum(['asc', 'desc']).default('desc'),
-        search: z.string().optional(),
-        status: z.string().optional(),
+        search: z.string().max(200).optional(),
+        status: z.string().max(32).optional(),
     }).optional())
     .handler(async ({ input, context }) => {
         const organizationId = context.session?.activeOrganizationId;
@@ -53,9 +53,12 @@ export const listBookings = protectedProcedure
             .eq("organization_id", organizationId)
             .neq("status", "cancelled");
         
-        // Apply search filter
-        if (search) {
-            query = query.or(`client_name.ilike.%${search}%,client_email.ilike.%${search}%,client_phone.ilike.%${search}%,status.ilike.%${search}%,notes.ilike.%${search}%`);
+        const searchSafe = search
+            ? search.replace(/[%_,()]/g, "").trim().slice(0, 120)
+            : "";
+
+        if (searchSafe) {
+            query = query.or(`client_name.ilike.%${searchSafe}%,client_email.ilike.%${searchSafe}%,client_phone.ilike.%${searchSafe}%,status.ilike.%${searchSafe}%,notes.ilike.%${searchSafe}%`);
         }
         
         // Apply status filter
@@ -64,13 +67,13 @@ export const listBookings = protectedProcedure
         }
         
         // Get total count with filters
-        const countQuery = supabase
+        let countQuery = supabase
             .from("bookings")
             .select("*", { count: 'exact', head: true })
             .eq("organization_id", organizationId)
             .neq("status", "cancelled");
-        if (search) {
-            countQuery.or(`client_name.ilike.%${search}%,client_email.ilike.%${search}%,client_phone.ilike.%${search}%,status.ilike.%${search}%,notes.ilike.%${search}%`);
+        if (searchSafe) {
+            countQuery = countQuery.or(`client_name.ilike.%${searchSafe}%,client_email.ilike.%${searchSafe}%,client_phone.ilike.%${searchSafe}%,status.ilike.%${searchSafe}%,notes.ilike.%${searchSafe}%`);
         }
         if (status) {
             countQuery.eq("status", status);
@@ -360,7 +363,7 @@ export const updateBookings = protectedProcedure
                     .eq("organization_id", organizationId)
                     .maybeSingle();
 
-                await sendBookingCancellationEmail({
+                await sendCancellationEmail({
                     clientName: row.client_name,
                     clientEmail: row.client_email,
                     serviceName: service?.name ?? "Servicio",
@@ -457,12 +460,23 @@ export const deleteBookings = protectedProcedure
             .select("*")
             .eq("id", input.id)
             .eq("organization_id", organizationId)
-            .single();
+            .maybeSingle();
 
         if (fetchError || !booking) {
             console.error("Error fetching booking for cancellation:", fetchError);
             throw new Error("Reserva no encontrada");
         }
+
+        const [{ data: svc }, { data: prof }] = await Promise.all([
+            booking.service_id
+                ? supabase.from("services").select("name").eq("id", booking.service_id).maybeSingle()
+                : Promise.resolve({ data: null }),
+            booking.professional_id
+                ? supabase.from("professionals").select("name").eq("id", booking.professional_id).maybeSingle()
+                : Promise.resolve({ data: null }),
+        ]);
+        const serviceName = svc?.name ?? "Servicio";
+        const professionalName = prof?.name ?? null;
 
         // 2. Soft delete: cambiar status a 'cancelled'
         const { error } = await supabase
@@ -479,16 +493,29 @@ export const deleteBookings = protectedProcedure
         // 3. Enviar email de cancelación al cliente
         try {
             const { sendCancellationEmail } = await import("../../../../../apps/web/lib/email/booking-emails");
+            const { data: businessConfig } = await supabase
+                .from("business_config")
+                .select("business_name, email, phone, address, city, timezone")
+                .eq("organization_id", organizationId)
+                .maybeSingle();
+
             if (booking.client_email) {
                 await sendCancellationEmail({
                     clientName: booking.client_name,
                     clientEmail: booking.client_email,
-                    serviceName: "Servicio", // fallback
-                    professionalName: null,
+                    serviceName,
+                    professionalName,
                     date: booking.date,
                     time: booking.start_time,
                     price: booking.price || 0,
-                    businessName: "Tu Barbería", // fallback, se obtiene mejor abajo
+                    businessName: businessConfig?.business_name ?? "Tu Barbería",
+                    businessPhone: businessConfig?.phone ?? undefined,
+                    businessAddress:
+                        businessConfig?.address
+                            ? `${businessConfig.address}${businessConfig.city ? `, ${businessConfig.city}` : ""}`
+                            : undefined,
+                    bookingId: booking.id,
+                    timezone: businessConfig?.timezone ?? "Europe/Madrid",
                 });
             }
         } catch (emailError) {
@@ -497,24 +524,24 @@ export const deleteBookings = protectedProcedure
 
         // 4. Enviar email al peluquero (si tiene email configurado)
         try {
-            const { data: businessConfig } = await supabase
+            const { data: businessConfigNotify } = await supabase
                 .from("business_config")
                 .select("business_name, email")
                 .eq("organization_id", organizationId)
-                .single();
+                .maybeSingle();
 
-            if (businessConfig?.email && booking.client_email) {
+            if (businessConfigNotify?.email && booking.client_email) {
                 const { sendBusinessNotificationEmail } = await import("../../../../../apps/web/lib/email/booking-emails");
                 await sendBusinessNotificationEmail({
                     clientName: booking.client_name,
                     clientEmail: booking.client_email,
-                    serviceName: "Servicio",
-                    professionalName: null,
+                    serviceName,
+                    professionalName,
                     date: booking.date,
                     time: booking.start_time,
                     price: booking.price || 0,
-                    businessName: businessConfig.business_name || "Barbería",
-                    businessEmail: businessConfig.email,
+                    businessName: businessConfigNotify.business_name || "Barbería",
+                    businessEmail: businessConfigNotify.email,
                 });
             }
         } catch (notifyError) {
@@ -535,7 +562,7 @@ export const listBlockedSlots = protectedProcedure
         limit: z.number().int().min(1).max(100).default(50),
         date_from: z.string().optional(),
         date_to: z.string().optional(),
-    }).default({}))
+    }).default({ page: 1, limit: 50 }))
     .handler(async ({ input, context }) => {
         const organizationId = context.session?.activeOrganizationId;
         if (!organizationId) throw new Error("No active organization");

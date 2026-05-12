@@ -15,39 +15,21 @@ export async function GET(
     let businessConfig = null;
     let organizationId = slug;
 
-    const { data: configBySlug, error: slugError } = await supabase
+    const { data: configBySlug } = await supabase
       .from("business_config")
       .select("*")
       .eq("slug", slug)
       .maybeSingle();
 
-    console.log(
-      "🔍 Buscando negocio por slug:",
-      slug,
-      "Resultado:",
-      configBySlug,
-      "Error:",
-      slugError,
-    );
-
     if (configBySlug) {
       businessConfig = configBySlug;
       organizationId = configBySlug.organization_id;
     } else {
-      const { data: configById, error: idError } = await supabase
+      const { data: configById } = await supabase
         .from("business_config")
         .select("*")
         .eq("organization_id", slug)
         .maybeSingle();
-
-      console.log(
-        "🔍 Buscando negocio por organization_id:",
-        slug,
-        "Resultado:",
-        configById,
-        "Error:",
-        idError,
-      );
 
       if (configById) {
         businessConfig = configById;
