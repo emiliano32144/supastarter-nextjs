@@ -184,6 +184,7 @@ export async function POST(request: NextRequest) {
           businessName: businessConfig.business_name || "Negocio",
           businessPhone: businessConfig.phone || undefined,
           businessAddress: businessConfig.address ? `${businessConfig.address}${businessConfig.city ? `, ${businessConfig.city}` : ''}` : undefined,
+          bookingId: booking.id,
           timezone: businessConfig.timezone || 'Europe/Madrid',
         });
 

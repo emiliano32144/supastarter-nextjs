@@ -151,6 +151,12 @@ export async function GET(
       facebook: businessConfig?.facebook_url || null,
       website: businessConfig?.website_url || null,
       slotDuration: businessConfig?.slot_duration || 30,
+      timezone: businessConfig?.timezone || "Europe/Madrid",
+      min_advance_hours: businessConfig?.min_advance_hours ?? 2,
+      max_advance_days: businessConfig?.max_advance_days ?? 14,
+      cancellation_fee_enabled: businessConfig?.cancellation_fee_enabled ?? false,
+      cancellation_fee_amount: businessConfig?.cancellation_fee_amount ?? 0.50,
+      cancellation_fee_hours: businessConfig?.cancellation_fee_hours ?? 24,
     };
 
     return NextResponse.json({

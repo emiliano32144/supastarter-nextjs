@@ -196,6 +196,7 @@ export async function POST(
         businessName: businessConfig?.business_name || 'Barbería',
         businessPhone: businessConfig?.phone || undefined,
         businessAddress: businessConfig?.address ? `${businessConfig.address}${businessConfig.city ? `, ${businessConfig.city}` : ''}` : undefined,
+        bookingId: booking.id,
       });
       console.log('📧 Resultado del email:', emailResult);
     } catch (emailError) {

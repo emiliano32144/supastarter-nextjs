@@ -72,14 +72,21 @@ export async function POST(
       return NextResponse.json({ error: "Niveles requeridos" }, { status: 400 });
     }
 
-    // Eliminar niveles existentes
-    await supabase
+    // Eliminar niveles que ya no existen en la lista nueva
+    const levelNumbers = levels.map((l: any) => l.level_number);
+    const { error: deleteError } = await supabase
       .from("loyalty_levels")
       .delete()
-      .eq("organization_id", organizationId);
+      .eq("organization_id", organizationId)
+      .not("level_number", "in", `(${levelNumbers.join(",")})`);
 
-    // Insertar nuevos niveles
-    const levelsToInsert = levels.map((level: any) => ({
+    if (deleteError) {
+      console.error("Error deleting old levels:", deleteError);
+      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+    }
+
+    // Upsert niveles (inserta nuevos, actualiza existentes)
+    const levelsToUpsert = levels.map((level: any) => ({
       organization_id: organizationId,
       level_number: level.level_number,
       name: level.name,
@@ -91,13 +98,13 @@ export async function POST(
       reward_description: level.reward_description || null,
     }));
 
-    const { error: insertError } = await supabase
+    const { error: upsertError } = await supabase
       .from("loyalty_levels")
-      .insert(levelsToInsert);
+      .upsert(levelsToUpsert, { onConflict: "organization_id,level_number" });
 
-    if (insertError) {
-      console.error("Error inserting levels:", insertError);
-      return NextResponse.json({ error: insertError.message }, { status: 500 });
+    if (upsertError) {
+      console.error("Error upserting levels:", upsertError);
+      return NextResponse.json({ error: upsertError.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
