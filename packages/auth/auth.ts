@@ -37,6 +37,10 @@ const getLocaleFromRequest = (request?: Request) => {
 
 const appUrl = getBaseUrl();
 
+/** En producción: AUTH_REQUIRE_EMAIL_VERIFICATION=true en el entorno */
+const requireEmailVerification =
+	process.env.AUTH_REQUIRE_EMAIL_VERIFICATION === "true";
+
 export const auth = betterAuth({
 	baseURL: appUrl,
 	trustedOrigins: [
@@ -160,9 +164,8 @@ export const auth = betterAuth({
 		enabled: true,
 		// If signup is disabled, the only way to sign up is via an invitation. So in this case we can auto sign in the user, as the email is already verified by the invitation.
 		// If signup is enabled, we can't auto sign in the user, as the email is not verified yet.
-		// TEMPORAL: Desactivado para desarrollo
-		autoSignIn: true,
-		requireEmailVerification: false,
+		autoSignIn: !requireEmailVerification,
+		requireEmailVerification,
 		sendResetPassword: async ({ user, url }, request) => {
 			const locale = getLocaleFromRequest(request);
 			await sendEmail({
@@ -177,8 +180,7 @@ export const auth = betterAuth({
 		},
 	},
 	emailVerification: {
-		// TEMPORAL: Desactivado para desarrollo
-		sendOnSignUp: false,
+		sendOnSignUp: requireEmailVerification,
 		autoSignInAfterVerification: true,
 		sendVerificationEmail: async (
 			{ user: { email, name }, url },

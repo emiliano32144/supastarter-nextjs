@@ -17,7 +17,7 @@ export async function GET(
       .from("business_config")
       .select("*")
       .eq("organization_id", organizationId)
-      .single();
+      .maybeSingle();
 
     if (error && error.code !== "PGRST116") {
       console.error("Error fetching config:", error);
@@ -48,7 +48,7 @@ export async function POST(
         .select("organization_id")
         .eq("slug", body.slug)
         .neq("organization_id", organizationId)
-        .single();
+        .maybeSingle();
 
       if (existingSlug) {
         return NextResponse.json(
@@ -58,20 +58,35 @@ export async function POST(
       }
     }
 
-    // Verificar si ya existe config previa (para no machacar trial si ya está activo)
+    // Config existente (0 o 1 fila). No usar .single() sin fila → rompe el primer guardado.
     const { data: existingConfig } = await supabase
       .from("business_config")
       .select("plan, trial_ends_at")
       .eq("organization_id", organizationId)
-      .single();
+      .maybeSingle();
 
-    // Si no hay plan previo, iniciar trial de 14 días
-    let plan = body.plan || existingConfig?.plan || 'trial';
-    let trialEndsAt = existingConfig?.trial_ends_at || null;
-    if (!existingConfig) {
+    const paidPlans = ["normal", "pro"] as const;
+    const existingPlan = existingConfig?.plan ?? null;
+    const isPaid = paidPlans.includes(
+      existingPlan as (typeof paidPlans)[number],
+    );
+
+    // Nunca dar de alta plan de pago desde este POST (solo Stripe / admin interno).
+    let plan: string = isPaid
+      ? existingPlan
+      : typeof body.plan === "string" &&
+          body.plan !== "normal" &&
+          body.plan !== "pro"
+        ? body.plan
+        : (existingPlan ?? "trial");
+
+    let trialEndsAt: string | null = existingConfig?.trial_ends_at ?? null;
+
+    // Trial 14 días: primera vez o fila sin ventana de trial y aún no es plan de pago.
+    if (!isPaid && !trialEndsAt) {
       const trialEnd = new Date();
       trialEnd.setDate(trialEnd.getDate() + 14);
-      plan = 'trial';
+      plan = "trial";
       trialEndsAt = trialEnd.toISOString();
     }
 

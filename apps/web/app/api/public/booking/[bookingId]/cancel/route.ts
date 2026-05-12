@@ -6,6 +6,12 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+function appointmentLocalDateTime(date: string, startTime: string): Date {
+  const t = String(startTime || "00:00").replace(/(\.\d+)?\+.*$/, "").trim();
+  const hm = t.length >= 5 ? t.slice(0, 5) : "00:00";
+  return new Date(`${date}T${hm}:00`);
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ bookingId: string }> }
@@ -49,7 +55,10 @@ export async function POST(
     let cancellationFeeAmount = 0;
 
     if (businessConfig?.cancellation_fee_enabled) {
-      const appointmentDate = new Date(`${booking.date}T${booking.start_time}`);
+      const appointmentDate = appointmentLocalDateTime(
+        booking.date,
+        String(booking.start_time),
+      );
       const now = new Date();
       const hoursUntil = (appointmentDate.getTime() - now.getTime()) / (1000 * 60 * 60);
       const feeHours = businessConfig.cancellation_fee_hours || 24;

@@ -327,8 +327,17 @@ export async function sendCancellationEmail(data: BookingEmailData) {
   } = data;
 
   const formattedDate = formatDateTimeInTz(date, time, timezone);
-  const feeHtml = cancellationFee ? `
-        <tr><td style="padding:8px 0;color:#888;font-size:13px;">Fee por cancelación tardía</td><td style="padding:8px 0;color:#dc2626;font-size:14px;text-align:right;font-weight:600;">€${cancellationFee.toFixed(2)}</td></tr>` : '';
+  const feeBanner = cancellationFee
+    ? `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px;margin-bottom:20px;text-align:center;">
+        <p style="color:#991b1b;margin:0;font-size:15px;font-weight:700;">Cancelación tardía</p>
+        <p style="color:#dc2626;margin:8px 0 0;font-size:22px;font-weight:800;">€${cancellationFee.toFixed(2)}</p>
+        <p style="color:#7f1d1d;margin:6px 0 0;font-size:12px;">Este importe corresponde al fee configurado por el salón.</p>
+      </div>`
+    : "";
+  const feeHtml = cancellationFee
+    ? `
+        <tr><td style="padding:8px 0;color:#888;font-size:13px;">Fee por cancelación tardía</td><td style="padding:8px 0;color:#dc2626;font-size:14px;text-align:right;font-weight:600;">€${cancellationFee.toFixed(2)}</td></tr>`
+    : "";
 
   try {
     const resend = getResend();
@@ -351,6 +360,7 @@ export async function sendCancellationEmail(data: BookingEmailData) {
     <div style="padding:30px;">
       <p style="color:#333;margin:0 0 20px;">Hola <strong>${clientName}</strong>,</p>
       <p style="color:#666;margin:0 0 25px;">Tu reserva ha sido cancelada:</p>
+      ${feeBanner}
       <div style="background:#f8f8f8;border-radius:8px;padding:20px;margin-bottom:25px;">
         <table style="width:100%;border-collapse:collapse;">
           <tr><td style="padding:8px 0;color:#888;font-size:13px;">Servicio</td><td style="padding:8px 0;color:#333;font-size:14px;text-align:right;font-weight:600;">${serviceName}</td></tr>

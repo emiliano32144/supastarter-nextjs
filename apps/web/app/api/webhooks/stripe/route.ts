@@ -98,7 +98,7 @@ async function findOrganizationId(
       .from("business_config")
       .select("organization_id")
       .eq("slug", organizationSlug)
-      .single();
+      .maybeSingle();
 
     if (config?.organization_id) {
       return config.organization_id;
@@ -111,7 +111,7 @@ async function findOrganizationId(
       .from("user")
       .select("id")
       .eq("email", customerEmail)
-      .single();
+      .maybeSingle();
 
     if (user?.id) {
       // Buscar la organización principal del usuario
@@ -121,7 +121,7 @@ async function findOrganizationId(
         .eq("userId", user.id)
         .order("createdAt", { ascending: true })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (member?.organizationId) {
         return member.organizationId;
@@ -135,12 +135,28 @@ async function findOrganizationId(
 /**
  * Mapear Price ID a plan de FILO
  */
+function stripePriceIdsNormal(): string[] {
+  return [
+    process.env.NEXT_PUBLIC_STRIPE_PRICE_NORMAL,
+    process.env.NEXT_PUBLIC_PRICE_ID_BASICO_MONTHLY,
+  ].filter(Boolean) as string[];
+}
+
+function stripePriceIdsPro(): string[] {
+  return [
+    process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO,
+    process.env.NEXT_PUBLIC_PRICE_ID_PRO_MONTHLY,
+  ].filter(Boolean) as string[];
+}
+
 function getPlanFromPriceId(priceId: string): string {
-  const planMap: Record<string, string> = {
-    [process.env.NEXT_PUBLIC_STRIPE_PRICE_NORMAL || '']: 'normal',
-    [process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO || '']: 'pro',
-  };
-  return planMap[priceId] || 'trial';
+  if (stripePriceIdsNormal().includes(priceId)) {
+    return "normal";
+  }
+  if (stripePriceIdsPro().includes(priceId)) {
+    return "pro";
+  }
+  return "trial";
 }
 async function getProductIdFromPriceId(priceId: string): Promise<string | null> {
   try {
