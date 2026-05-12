@@ -48,6 +48,8 @@ export const auth = betterAuth({
 		"http://localhost:8000",
 		"https://autosaas-platform-production.up.railway.app",
 		appUrl,
+		...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
+		...(process.env.VERCEL_BRANCH_URL ? [`https://${process.env.VERCEL_BRANCH_URL}`] : []),
 	],
 	appName: config.appName,
 	database: prismaAdapter(db, {
