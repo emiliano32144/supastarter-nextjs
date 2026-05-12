@@ -159,7 +159,13 @@ export default function EmpezarPage() {
 			<div className="pt-24 pb-16 px-4">
 				<div className="max-w-6xl mx-auto">
 					{/* Header */}
-					<div className="text-center mb-12">
+					<div className="text-center mb-8">
+						{/* Banner de trial */}
+						<div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/20 border border-amber-500/30 rounded-full mb-6">
+							<span className="text-amber-400 text-sm font-medium">🎁 14 días de prueba gratuita</span>
+							<span className="text-white/50 text-xs">Sin tarjeta de crédito</span>
+						</div>
+
 						<h1 className="text-4xl md:text-5xl font-light tracking-tight mb-4">
 							Empieza con <span className="text-amber-400">FILO</span>
 						</h1>
@@ -189,6 +195,11 @@ export default function EmpezarPage() {
 												RECOMENDADO
 											</div>
 										)}
+
+										{/* Badge trial */}
+										<div className="absolute top-4 right-4 px-2 py-0.5 bg-green-500/20 border border-green-500/30 text-green-400 text-[10px] font-medium rounded-full">
+											14 días gratis
+										</div>
 
 										<h3 className="text-lg font-medium mb-1">{plan.nombre}</h3>
 										<p className="text-white/40 text-sm mb-4">{plan.descripcion}</p>

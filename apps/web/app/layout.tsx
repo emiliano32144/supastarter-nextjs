@@ -68,6 +68,12 @@ export default function RootLayout({ children }: PropsWithChildren) {
 	return (
 		<>
 			{children}
+			<Script
+				id="plausible-analytics"
+				strategy="afterInteractive"
+				data-domain={process.env.NEXT_PUBLIC_PLAUSIBLE_URL || "codetix.es"}
+				src="https://plausible.io/js/script.js"
+			/>
 			<Script id="register-sw" strategy="afterInteractive">{
 				`
 				if ('serviceWorker' in navigator) {
