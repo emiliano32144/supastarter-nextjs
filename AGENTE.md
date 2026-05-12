@@ -21,7 +21,7 @@ Separación crítica:
 
 ---
 
-## 2. ESTADO ACTUAL — commit 816cb937
+## 2. ESTADO ACTUAL — commit 4c1d7dbf
 
 ### ✅ RESUELTO (no tocar sin buena razón)
 
@@ -53,8 +53,24 @@ Separación crítica:
 _(Nivel 1 BUG-1 a DEUDA-4: resuelto. Ver tabla arriba y sección “Nivel 2” abajo.)_
 
 #### INFRA-5 (CRÍTICO, requiere acción del usuario, no del agente):
-- **SQL Migration**: `sql-fix-all-reservas.sql` debe ejecutarse en Supabase SQL Editor. Sin esto, columnas como `reschedule_count`, `cancellation_fee_applied`, `blocked_slots`, `client_profile_id` en bookings NO EXISTEN en la DB y las rutas que las usan van a fallar silenciosamente.
-- **Stripe Webhook**: Conectar en Stripe Dashboard → `https://codetix.es/api/webhooks/stripe` con estos 5 eventos: `checkout.session.completed`, `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.deleted`, `customer.subscription.updated`. Variable env `STRIPE_WEBHOOK_SECRET` requerida. El cron de Vercel debe llamar al route con **GET** (configurado); el handler exige `Authorization: Bearer <CRON_SECRET>`, header `x-cron-secret` o query `?secret=` — configurar en Vercel el secreto acorde a tu despliegue.
+
+- **SQL Migration**: `sql-fix-v4-1.sql` (en raíz del repo) debe ejecutarse en Supabase SQL Editor.
+  Sin esto, estas columnas **NO EXISTEN en la DB** y las rutas fallan en producción:
+  - `bookings`: `reschedule_count`, `cancellation_fee_applied`, `cancellation_fee_amount`, `client_profile_id`, `price`, `client_email`, `client_phone`, `reminder_sent`
+  - `services`: `xp_value`
+  - `business_config`: `plan`, `trial_ends_at`, `stripe_customer_id`, `stripe_subscription_id`, `cancellation_fee_*`
+  - Tablas nuevas: `client_profiles`, `xp_history`, `loyalty_levels`, `earned_rewards`, `style_gallery`, `blocked_slots`, `cut_photos`
+  El SQL es idempotente (`IF NOT EXISTS`). El SELECT final muestra diagnóstico de columnas.
+
+- **Stripe Webhook**: Conectar en Stripe Dashboard → `https://codetix.es/api/webhooks/stripe` con estos 5 eventos:
+  `checkout.session.completed`, `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.deleted`, `customer.subscription.updated`.
+  Copiar el signing secret → Vercel → `STRIPE_WEBHOOK_SECRET` (Production).
+
+- **CRON_SECRET**: Debe existir en Vercel → Settings → Environment Variables (Production). El route `/api/cron/booking-reminders` verifica esta variable.
+
+- **Push pendiente**: Rama va 2 commits adelante de `origin/main` (1cc30130 + 4c1d7dbf). Hacer `git push origin main`.
+
+- **E2E**: Una vez el SQL esté aplicado y Stripe conectado, hacer reserva de prueba y verificar email de confirmación (Resend logs).
 
 ### Nivel 2 — Auditoría e implementación (2026-05-10)
 
@@ -178,7 +194,7 @@ apps/web/
     ├── email/booking-emails.ts             ← Todas las funciones de email (+ `sendRescheduleEmail`)
     └── rate-limit-memory.ts                ← Rate limit en memoria (POST book)
 
-sql-fix-all-reservas.sql                    ← Migration idempotente (EJECUTAR EN SUPABASE)
+sql-fix-v4-1.sql                            ← Migration idempotente v4.1 (EJECUTAR EN SUPABASE)
 apps/web/scripts/verify-cancel-tz.mjs       ← Verificación matemática BUG-1 (`fromZonedTime` vs UTC)
 packages/api/modules/reservas/procedures/index.ts  ← listBookings / deleteBookings / updateBookings
 ```
@@ -254,5 +270,6 @@ Documentarlo en este archivo antes de cerrar la sesión.
 
 ---
 
-*Última actualización: 2026-05-10 — Nivel 1 (BUG-1…DEUDA-4) + Nivel 2 (rate limit, trial, cron, zod, admin list/cancel); contenido auditado previo: 2026-05-12 | Commit base: 816cb937*
-*Generado tras auditorías de Claude, OpenClaw/Kimi*
+*Última actualización: 2026-05-12 — Commits 1cc30130 + 4c1d7dbf: BUG-1…DEUDA-4, rate limit, trial, cron, zod, admin list/cancel, Stripe checkout + webhook lifecycle, pricing UI, configuracion UI, sql-fix-v4-1.sql versionado.*
+*Generado tras auditorías de Claude, OpenClaw/Kimi. Implementado por Cursor Pro.*
+*⚠️ PENDIENTE CRÍTICO: sql-fix-v4-1.sql en Supabase SQL Editor + Stripe webhook + CRON_SECRET en Vercel + git push origin main*
