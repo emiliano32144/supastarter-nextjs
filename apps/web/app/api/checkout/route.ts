@@ -20,6 +20,14 @@ export async function POST(request: Request) {
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL || "https://codetix.es";
 
+    // Mapa explícito de price IDs a planes (evita false positives con includes("pro"))
+    const priceIdToPlan: Record<string, string> = {
+      [process.env.NEXT_PUBLIC_STRIPE_PRICE_NORMAL || ""]: "normal",
+      [process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO || ""]: "pro",
+      [process.env.NEXT_PUBLIC_PRICE_ID_BASICO_MONTHLY || ""]: "normal",
+      [process.env.NEXT_PUBLIC_PRICE_ID_PRO_MONTHLY || ""]: "pro",
+    };
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],
@@ -34,7 +42,7 @@ export async function POST(request: Request) {
       cancel_url: `${baseUrl}/checkout/cancel`,
       metadata: {
         organizationSlug: organizationSlug || "",
-        plan: priceId.includes("pro") ? "pro" : "normal",
+        plan: priceIdToPlan[priceId] || "normal",
       },
       subscription_data: {
         metadata: {

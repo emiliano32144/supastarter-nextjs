@@ -102,6 +102,25 @@ export async function POST(request: NextRequest) {
       (businessConfigs || []).map((c) => [c.organization_id, c.timezone || "Europe/Madrid"])
     );
 
+    // BATCH: Obtener todos los datos relacionados ANTES del loop
+    const orgIds = [...new Set(bookings.map((b) => b.organization_id))];
+    const serviceIds = [...new Set(bookings.map((b) => b.service_id).filter(Boolean))];
+    const profIds = [...new Set(bookings.map((b) => b.professional_id).filter(Boolean))];
+
+    const [
+      { data: allBusinessConfigs },
+      { data: allServices },
+      { data: allProfessionals },
+    ] = await Promise.all([
+      orgIds.length > 0 ? supabase.from("business_config").select("*").in("organization_id", orgIds) : { data: [] },
+      serviceIds.length > 0 ? supabase.from("services").select("id, name").in("id", serviceIds) : { data: [] },
+      profIds.length > 0 ? supabase.from("professionals").select("id, name").in("id", profIds) : { data: [] },
+    ]);
+
+    const businessMap = new Map((allBusinessConfigs || []).map((c) => [c.organization_id, c]));
+    const serviceMap = new Map((allServices || []).map((s) => [s.id, s]));
+    const profMap = new Map((allProfessionals || []).map((p) => [p.id, p]));
+
     let sentCount = 0;
     let errorCount = 0;
     const errors: string[] = [];
@@ -124,14 +143,10 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Obtener información del negocio
-        const { data: businessConfig, error: configError } = await supabase
-          .from("business_config")
-          .select("*")
-          .eq("organization_id", booking.organization_id)
-          .single();
+        // Obtener información del negocio desde el Map
+        const businessConfig = businessMap.get(booking.organization_id);
 
-        if (configError || !businessConfig) {
+        if (!businessConfig) {
           console.error(`⚠️ No se encontró business_config para organization_id: ${booking.organization_id}`);
           errorCount++;
           errors.push(`Booking ${booking.id}: Business config not found`);
@@ -146,31 +161,15 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Obtener información del servicio
-        let serviceName = "Servicio no especificado";
-        if (booking.service_id) {
-          const { data: service } = await supabase
-            .from("services")
-            .select("name")
-            .eq("id", booking.service_id)
-            .single();
-          if (service) {
-            serviceName = service.name;
-          }
-        }
+        // Obtener información del servicio desde el Map
+        const serviceName = booking.service_id
+          ? serviceMap.get(booking.service_id)?.name || "Servicio no especificado"
+          : "Servicio no especificado";
 
-        // Obtener información del profesional
-        let professionalName: string | null = null;
-        if (booking.professional_id) {
-          const { data: professional } = await supabase
-            .from("professionals")
-            .select("name")
-            .eq("id", booking.professional_id)
-            .single();
-          if (professional) {
-            professionalName = professional.name;
-          }
-        }
+        // Obtener información del profesional desde el Map
+        const professionalName = booking.professional_id
+          ? profMap.get(booking.professional_id)?.name || null
+          : null;
 
         // Enviar email de recordatorio
         const emailResult = await sendBookingReminderEmail({

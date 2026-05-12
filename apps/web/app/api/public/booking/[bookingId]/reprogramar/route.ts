@@ -21,7 +21,7 @@ export async function GET(
 
     const { data: booking, error } = await supabase
       .from("bookings")
-      .select("*, service:services(id, name, duration), business:business_config(slug, business_name, timezone)")
+      .select("id, organization_id, client_email, client_name, service_id, date, start_time, reschedule_count, status")
       .eq("id", bookingId)
       .single();
 
@@ -33,17 +33,23 @@ export async function GET(
       return NextResponse.json({ error: "Email no coincide" }, { status: 403 });
     }
 
+    // Obtener datos relacionados en paralelo
+    const [{ data: service }, { data: business }] = await Promise.all([
+      booking.service_id ? supabase.from("services").select("id, name, duration").eq("id", booking.service_id).maybeSingle() : { data: null },
+      supabase.from("business_config").select("slug, business_name, timezone").eq("organization_id", booking.organization_id).maybeSingle(),
+    ]);
+
     return NextResponse.json({
       success: true,
-      slug: booking.business?.slug,
+      slug: business?.slug,
       service_id: booking.service_id,
-      service_duration: booking.service?.duration,
-      business_name: booking.business?.business_name,
+      service_duration: service?.duration,
+      business_name: business?.business_name,
       current_date: booking.date,
       current_time: booking.start_time,
       reschedule_count: booking.reschedule_count || 0,
       status: booking.status,
-      timezone: booking.business?.timezone || "Europe/Madrid",
+      timezone: business?.timezone || "Europe/Madrid",
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -67,10 +73,10 @@ export async function POST(
       );
     }
 
-    // Obtener reserva actual
+    // Obtener reserva actual sin joins
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
-      .select("*, service:services(*), professional:professionals(*), business:business_config(*)")
+      .select("id, organization_id, client_email, client_name, service_id, professional_id, date, start_time, end_time, price, status, reschedule_count")
       .eq("id", bookingId)
       .single();
 
@@ -99,8 +105,14 @@ export async function POST(
       );
     }
 
+    // Obtener datos relacionados en paralelo
+    const [{ data: service }, { data: professional }, { data: business }] = await Promise.all([
+      booking.service_id ? supabase.from("services").select("id, name, duration").eq("id", booking.service_id).maybeSingle() : { data: null },
+      booking.professional_id ? supabase.from("professionals").select("id, name").eq("id", booking.professional_id).maybeSingle() : { data: null },
+      supabase.from("business_config").select("business_name, phone, address, city, timezone").eq("organization_id", booking.organization_id).maybeSingle(),
+    ]);
+
     // Calcular nueva hora de fin
-    const service = booking.service;
     const [hours, minutes] = new_start_time.split(":").map(Number);
     const startDate = new Date();
     startDate.setHours(hours, minutes, 0, 0);
@@ -185,17 +197,17 @@ export async function POST(
         clientName: booking.client_name,
         clientEmail: booking.client_email,
         serviceName: service?.name || "Servicio",
-        professionalName: booking.professional?.name || null,
+        professionalName: professional?.name || null,
         date: new_date,
         time: new_start_time,
         price: booking.price || 0,
-        businessName: booking.business?.business_name || "Negocio",
-        businessPhone: booking.business?.phone || undefined,
-        businessAddress: booking.business?.address
-          ? `${booking.business.address}${booking.business.city ? `, ${booking.business.city}` : ""}`
+        businessName: business?.business_name || "Negocio",
+        businessPhone: business?.phone || undefined,
+        businessAddress: business?.address
+          ? `${business.address}${business.city ? `, ${business.city}` : ""}`
           : undefined,
         bookingId,
-        timezone: booking.business?.timezone || "Europe/Madrid",
+        timezone: business?.timezone || "Europe/Madrid",
       });
     } catch (emailError) {
       console.error("❌ Error enviando email de reprogramación:", emailError);

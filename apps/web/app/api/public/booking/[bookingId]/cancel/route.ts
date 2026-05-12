@@ -6,10 +6,37 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-function appointmentLocalDateTime(date: string, startTime: string): Date {
+function appointmentLocalDateTime(date: string, startTime: string, timezone: string = 'Europe/Madrid'): Date {
   const t = String(startTime || "00:00").replace(/(\.\d+)?\+.*$/, "").trim();
   const hm = t.length >= 5 ? t.slice(0, 5) : "00:00";
-  return new Date(`${date}T${hm}:00`);
+
+  // Crear un Date que representa la fecha/hora en la timezone del negocio
+  // No podemos usar new Date() directamente porque parsea en UTC local del servidor
+  const [year, month, day] = date.split('-').map(Number);
+  const [hour, minute] = hm.split(':').map(Number);
+
+  // Usar Intl.DateTimeFormat para obtener la representación correcta en la timezone
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  });
+
+  // Crear una fecha UTC con los componentes correctos
+  const utcCandidate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+  const parts = formatter.formatToParts(utcCandidate.getTime());
+  const p = (type: string) => parts.find(part => part.type === type)?.value || '0';
+
+  // Obtener la fecha/hora en la timezone del negocio
+  const tzYear = parseInt(p('year'));
+  const tzMonth = parseInt(p('month')) - 1;
+  const tzDay = parseInt(p('day'));
+  const tzHour = parseInt(p('hour'));
+  const tzMinute = parseInt(p('minute'));
+
+  // Crear un Date local que representa la misma hora de reloj en la timezone del negocio
+  return new Date(tzYear, tzMonth, tzDay, tzHour, tzMinute, 0);
 }
 
 export async function POST(
@@ -55,9 +82,11 @@ export async function POST(
     let cancellationFeeAmount = 0;
 
     if (businessConfig?.cancellation_fee_enabled) {
+      const tz = businessConfig?.timezone || 'Europe/Madrid';
       const appointmentDate = appointmentLocalDateTime(
         booking.date,
         String(booking.start_time),
+        tz,
       );
       const now = new Date();
       const hoursUntil = (appointmentDate.getTime() - now.getTime()) / (1000 * 60 * 60);

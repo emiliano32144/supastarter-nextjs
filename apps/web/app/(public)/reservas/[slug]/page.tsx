@@ -2,6 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import AuthModal from "./components/AuthModal";
 import TrendCard from "./components/TrendCard";
 import ServiceCard from "./components/ServiceCard";
@@ -27,6 +28,10 @@ type BusinessConfig = {
   website?: string | null;
   min_advance_hours?: number;
   max_advance_days?: number;
+  timezone?: string;
+  cancellation_fee_enabled?: boolean;
+  cancellation_fee_amount?: number;
+  cancellation_fee_hours?: number;
 };
 
 type Service = {
@@ -209,11 +214,11 @@ export default function PublicBookingPage() {
 
   const handleBooking = async () => {
     if (!selectedService || !selectedDate || !selectedTime || !clientName || !clientEmail) {
-      alert("Por favor completá todos los campos obligatorios: nombre, email, servicio, fecha y hora.");
+      toast.error("Por favor completá todos los campos obligatorios: nombre, email, servicio, fecha y hora.");
       return;
     }
     if (!clientPhone) {
-      alert("Por favor ingresá un número de teléfono para que podamos contactarte si es necesario.");
+      toast.error("Por favor ingresá un número de teléfono para que podamos contactarte si es necesario.");
       return;
     }
     
@@ -238,7 +243,7 @@ export default function PublicBookingPage() {
       if (!res.ok) throw new Error("Error al crear reserva");
       setBookingSuccess(true);
     } catch (err) {
-      alert("Error al crear la reserva");
+      toast.error("Error al crear la reserva. Por favor intentá de nuevo.");
     } finally {
       setSubmitting(false);
     }
