@@ -33,10 +33,12 @@ type BusinessConfig = {
   instagram_url: string;
   facebook_url: string;
   website_url: string;
-  timezone: string;
   min_advance_hours: number;
   max_advance_days: number;
   slot_duration: number;
+  cancellation_fee_enabled: boolean;
+  cancellation_fee_amount: number;
+  cancellation_fee_hours: number;
 };
 
 const defaultConfig: BusinessConfig = {
@@ -60,6 +62,9 @@ const defaultConfig: BusinessConfig = {
   min_advance_hours: 2,
   max_advance_days: 30,
   slot_duration: 30,
+  cancellation_fee_enabled: false,
+  cancellation_fee_amount: 0.5,
+  cancellation_fee_hours: 24,
 };
 
 const colorPresets = [

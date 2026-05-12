@@ -4,7 +4,7 @@ import { createPurchase, updatePurchase, getPurchaseBySubscriptionId } from "@re
 import { createClient } from "@supabase/supabase-js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-02-24.acacia",
+  apiVersion: "2025-10-29.clover",
 });
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -12,6 +12,14 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+
+function getSubscriptionIdFromInvoice(invoice: Stripe.Invoice): string | null {
+  const parent = invoice.parent;
+  if (!parent || parent.type !== "subscription_details") return null;
+  const ref = parent.subscription_details?.subscription;
+  if (!ref) return null;
+  return typeof ref === "string" ? ref : ref.id;
+}
 
 /**
  * Webhook de Stripe para manejar eventos de suscripción
@@ -58,8 +66,7 @@ export async function POST(request: Request) {
         break;
       }
 
-      case "customer.subscription.deleted":
-      case "customer.subscription.canceled": {
+      case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
         await handleSubscriptionCancelled(subscription);
         break;
@@ -243,7 +250,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
  * → Confirmar que la suscripción sigue activa
  */
 async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
-  const subscriptionId = invoice.subscription as string;
+  const subscriptionId = getSubscriptionIdFromInvoice(invoice);
   if (!subscriptionId) return;
 
   const purchase = await getPurchaseBySubscriptionId(subscriptionId);
@@ -265,7 +272,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
  * → Marcar como past_due
  */
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
-  const subscriptionId = invoice.subscription as string;
+  const subscriptionId = getSubscriptionIdFromInvoice(invoice);
   if (!subscriptionId) return;
 
   const purchase = await getPurchaseBySubscriptionId(subscriptionId);
