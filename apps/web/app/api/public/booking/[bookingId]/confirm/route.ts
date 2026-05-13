@@ -14,7 +14,7 @@ export async function GET(
   const { bookingId } = await params;
   const { searchParams } = new URL(request.url);
   const token = searchParams.get("token");
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://codetix.es";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://filo.com.es";
 
   if (!token) {
     return NextResponse.redirect(
