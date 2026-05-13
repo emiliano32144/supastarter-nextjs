@@ -145,7 +145,7 @@ export async function POST(
 			.eq("date", date)
 			.neq("status", "cancelled")
 			.or(
-				`and(start_time.lte.${timeNorm},end_time.gt.${timeNorm}),and(start_time.lt.${end_time},end_time.gte.${end_time})`,
+				`and(start_time.lt.${end_time},end_time.gt.${timeNorm})`,
 			);
 
 		if (professional_id) {
