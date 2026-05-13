@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import {
-	sendBookingConfirmationEmail,
+	sendBookingPendingConfirmationEmail,
 	sendBusinessNotificationEmail,
 } from "../../../../../../lib/email/booking-emails";
 import {
@@ -131,6 +131,13 @@ export async function POST(
 		const endDate = new Date(startDate.getTime() + service.duration * 60000);
 		const end_time = `${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}`;
 
+		await supabase
+			.from("bookings")
+			.update({ status: "cancelled" })
+			.eq("organization_id", organizationId)
+			.eq("status", "awaiting_confirmation")
+			.lt("confirmation_expires_at", new Date().toISOString());
+
 		let bookingQuery = supabase
 			.from("bookings")
 			.select("id")
@@ -216,7 +223,9 @@ export async function POST(
 				date,
 				start_time: timeNorm,
 				end_time,
-				status: "pending",
+				status: "awaiting_confirmation",
+				confirmation_token: crypto.randomUUID(),
+				confirmation_expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
 				notes: notes ?? null,
 				price: service.price,
 			})
@@ -243,8 +252,10 @@ export async function POST(
 			}
 		}
 
+		const confirmUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/public/booking/${booking.id}/confirm?token=${booking.confirmation_token}`;
+
 		try {
-			await sendBookingConfirmationEmail({
+			await sendBookingPendingConfirmationEmail({
 				clientName: client_name,
 				clientEmail: client_email,
 				serviceName: service?.name || "Servicio",
@@ -257,11 +268,11 @@ export async function POST(
 				businessAddress: businessConfig.address
 					? `${businessConfig.address}${businessConfig.city ? `, ${businessConfig.city}` : ""}`
 					: undefined,
-				bookingId: booking.id,
+				confirmUrl,
 				timezone: String(businessConfig.timezone || "Europe/Madrid"),
 			});
 		} catch (emailError) {
-			console.error("❌ Error enviando email:", emailError);
+			console.error("❌ Error enviando email de confirmación pendiente:", emailError);
 		}
 
 		const bizEmail = businessConfig.email as string | undefined;
@@ -297,7 +308,7 @@ export async function POST(
 				end_time: booking.end_time,
 				status: booking.status,
 			},
-			message: "Reserva creada exitosamente",
+			message: "Revisá tu email para confirmar la reserva",
 		});
 	} catch (error: unknown) {
 		const message = error instanceof Error ? error.message : "Error";

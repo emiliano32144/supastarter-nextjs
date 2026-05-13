@@ -495,6 +495,79 @@ export async function sendCancellationEmail(data: BookingEmailData) {
 }
 
 
+export async function sendBookingPendingConfirmationEmail(params: {
+  clientName: string;
+  clientEmail: string;
+  serviceName: string;
+  professionalName: string | null;
+  date: string;
+  time: string;
+  price: number;
+  businessName: string;
+  businessPhone?: string;
+  businessAddress?: string;
+  confirmUrl: string;
+  timezone: string;
+}) {
+  const {
+    clientName, clientEmail, serviceName, professionalName,
+    date, time, price, businessName, businessPhone,
+    businessAddress, confirmUrl, timezone,
+  } = params;
+
+  const formatted = formatDateTimeInTz(date, time, timezone);
+
+  try {
+    const resend = getResend();
+    const { data: emailData, error } = await resend.emails.send({
+      from: `${businessName} <reservas@codetix.es>`,
+      to: clientEmail,
+      subject: `⏳ Confirmá tu reserva en ${businessName}`,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+          <div style="background:#F59E0B;padding:32px 24px;text-align:center">
+            <h1 style="color:#fff;margin:0;font-size:22px">⏳ Confirmá tu reserva</h1>
+            <p style="color:#fff;margin:8px 0 0;opacity:0.9">Tenés 30 minutos para confirmar</p>
+          </div>
+          <div style="padding:28px 24px">
+            <p style="color:#374151;font-size:16px">Hola <strong>${clientName}</strong>,</p>
+            <p style="color:#374151">Para completar tu reserva en <strong>${businessName}</strong>, hacé click en el botón de abajo. Si no confirmás en 30 minutos, el horario se libera.</p>
+
+            <div style="background:#F9FAFB;border-radius:8px;padding:16px;margin:20px 0">
+              <p style="margin:4px 0;color:#374151"><strong>Servicio:</strong> ${serviceName}</p>
+              ${professionalName ? `<p style="margin:4px 0;color:#374151"><strong>Profesional:</strong> ${professionalName}</p>` : ''}
+              <p style="margin:4px 0;color:#374151"><strong>Fecha:</strong> ${formatted}</p>
+              <p style="margin:4px 0;color:#374151"><strong>Precio:</strong> €${price.toFixed(2)}</p>
+              ${businessAddress ? `<p style="margin:4px 0;color:#374151"><strong>Dirección:</strong> ${businessAddress}</p>` : ''}
+              ${businessPhone ? `<p style="margin:4px 0;color:#374151"><strong>Teléfono:</strong> ${businessPhone}</p>` : ''}
+            </div>
+
+            <div style="text-align:center;margin:28px 0">
+              <a href="${confirmUrl}" style="background:#F59E0B;color:#fff;padding:14px 36px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px;display:inline-block">
+                ✅ Confirmar mi reserva
+              </a>
+            </div>
+
+            <p style="color:#9CA3AF;font-size:13px;text-align:center">
+              Este link expira en 30 minutos. Si no pediste esta reserva, ignorá este email.
+            </p>
+          </div>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error('Error enviando email de confirmación pendiente:', error);
+      return { success: false, error };
+    }
+
+    return { success: true, data: emailData };
+  } catch (err) {
+    console.error('Error en sendBookingPendingConfirmationEmail:', err);
+    return { success: false, error: err };
+  }
+}
+
 export async function sendBookingCompletedEmail(data: BookingEmailData & { xpEarned?: number; totalXp?: number; nextLevel?: string; nextReward?: string }) {
   const {
     clientName, clientEmail, serviceName, professionalName, date, time, price,
