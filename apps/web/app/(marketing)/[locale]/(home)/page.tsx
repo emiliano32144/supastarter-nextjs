@@ -1,8 +1,5 @@
-import { FaqSection } from "@marketing/home/components/FaqSection";
-import { Features } from "@marketing/home/components/Features";
-import { Hero } from "@marketing/home/components/Hero";
-import { PricingSection } from "@marketing/home/components/PricingSection";
 import { setRequestLocale } from "next-intl/server";
+import LandingPage from "@/components/landing/LandingPage";
 
 export default async function Home({
 	params,
@@ -12,12 +9,5 @@ export default async function Home({
 	const { locale } = await params;
 	setRequestLocale(locale);
 
-	return (
-		<>
-			<Hero />
-			<Features />
-			<PricingSection />
-			<FaqSection />
-		</>
-	);
+	return <LandingPage />;
 }
