@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef } from 'react';
+import type * as ThreeTypes from 'three';
 
 export default function ParticleCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -155,7 +156,7 @@ export default function ParticleCanvas() {
       canvas!.addEventListener('mousemove', onMouseMove);
       window.addEventListener('resize', onResize);
 
-      const aPos = geom.attributes.aPos as THREE.BufferAttribute;
+      const aPos = geom.attributes.aPos as ThreeTypes.BufferAttribute;
       const aPosArr = aPos.array as Float32Array;
       const pos = posArr;
       const vel = velArr;
