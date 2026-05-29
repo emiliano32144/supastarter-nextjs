@@ -10,6 +10,7 @@ import {
 	getClientIpForRateLimit,
 	isRateLimited,
 } from "../../../../../../lib/rate-limit-memory";
+import { computeEndTime } from "../../../../../../lib/booking-logic";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -125,11 +126,7 @@ export async function POST(
 			return NextResponse.json({ error: "Servicio no encontrado" }, { status: 404 });
 		}
 
-		const [hours, minutes] = timeNorm.split(":").map(Number);
-		const startDate = new Date();
-		startDate.setHours(hours, minutes, 0, 0);
-		const endDate = new Date(startDate.getTime() + service.duration * 60000);
-		const end_time = `${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}`;
+		const end_time = computeEndTime(timeNorm, service.duration);
 
 		await supabase
 			.from("bookings")

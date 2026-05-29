@@ -6,6 +6,7 @@ import {
   getClientIpForRateLimit,
   isRateLimited,
 } from "../../../../../../lib/rate-limit-memory";
+import { computeEndTime } from "../../../../../../lib/booking-logic";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -152,11 +153,7 @@ export async function POST(
     ]);
 
     // Calcular nueva hora de fin
-    const [hours, minutes] = timeNorm.split(":").map(Number);
-    const startDate = new Date();
-    startDate.setHours(hours, minutes, 0, 0);
-    const endDate = new Date(startDate.getTime() + (service?.duration || 30) * 60000);
-    const new_end_time = `${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}`;
+    const new_end_time = computeEndTime(timeNorm, service?.duration || 30);
 
     // Verificar disponibilidad del nuevo slot
     let availQuery = supabase

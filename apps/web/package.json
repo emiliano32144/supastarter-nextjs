@@ -108,7 +108,8 @@
 		"postcss": "8.5.6",
 		"start-server-and-test": "^2.1.2",
 		"tailwindcss": "4.1.17",
-		"typescript": "5.9.3"
+		"typescript": "5.9.3",
+		"vitest": "^4.1.7"
 	},
 	"name": "@repo/web",
 	"private": true,
@@ -119,6 +120,8 @@
 		"e2e:ci": "pnpm exec playwright install && pnpm exec playwright test",
 		"shadcn-ui": "pnpm dlx shadcn@latest",
 		"start": "next start",
+		"test": "vitest run",
+		"test:watch": "vitest",
 		"type-check": "tsc --noEmit"
 	},
 	"version": "0.0.0"
