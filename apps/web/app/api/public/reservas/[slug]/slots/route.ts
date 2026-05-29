@@ -50,12 +50,23 @@ export async function GET(
       }
     }
 
+    const nowIso = new Date().toISOString();
     let query = supabase
       .from("bookings")
       .select("start_time, end_time")
       .eq("organization_id", organizationId)
       .eq("date", date)
-      .in("status", ["pending", "confirmed"]);
+      // Ocupado = cualquier reserva no cancelada (incluye awaiting_confirmation),
+      // alineado con la lógica de disponibilidad de book/reprogramar y con el
+      // constraint anti-solapamiento de la BD. Evita mostrar como libre un hueco
+      // que está retenido (pendiente de confirmar) y que book rechazaría con 409.
+      .neq("status", "cancelled")
+      // ...pero un hold expirado (awaiting_confirmation con la ventana de 30 min
+      // vencida) no bloquea: book lo cancela en su próxima ejecución, así que el
+      // calendario debe mostrarlo libre.
+      .or(
+        `status.neq.awaiting_confirmation,confirmation_expires_at.gte.${nowIso}`,
+      );
 
     if (professionalId) {
       query = query.eq("professional_id", professionalId);

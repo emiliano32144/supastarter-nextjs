@@ -90,7 +90,15 @@ export async function GET(
       .from("bookings")
       .select("id, date, start_time, end_time, status, professional_id")
       .eq("organization_id", organizationId)
-      .in("status", ["pending", "confirmed"])
+      // Ocupado = cualquier reserva no cancelada (incluye awaiting_confirmation),
+      // alineado con book/reprogramar y el constraint de la BD, para que el
+      // calendario no muestre como libre un hueco retenido pendiente de confirmar.
+      .neq("status", "cancelled")
+      // ...salvo holds expirados (awaiting_confirmation con la ventana vencida),
+      // que book cancela en su próxima ejecución y deben mostrarse libres.
+      .or(
+        `status.neq.awaiting_confirmation,confirmation_expires_at.gte.${new Date().toISOString()}`,
+      )
       .gte("date", fromDate)
       .lte("date", toDate);
 

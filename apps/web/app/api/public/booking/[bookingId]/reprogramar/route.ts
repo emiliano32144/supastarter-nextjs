@@ -166,9 +166,12 @@ export async function POST(
       .eq("date", new_date)
       .neq("status", "cancelled")
       .neq("id", bookingId)
-      .or(
-        `and(start_time.lte.${timeNorm},end_time.gt.${timeNorm}),and(start_time.lt.${new_end_time},end_time.gte.${new_end_time})`,
-      );
+      // Solapamiento estándar: existe choque si (inicio_existente < fin_nuevo)
+      // Y (fin_existente > inicio_nuevo). Cubre también la contención completa
+      // (un turno corto dentro del nuevo rango), caso que la forma anterior de
+      // dos condiciones no detectaba. Mismo criterio que el endpoint de book.
+      .lt("start_time", new_end_time)
+      .gt("end_time", timeNorm);
 
     if (booking.professional_id) {
       availQuery = availQuery.eq("professional_id", booking.professional_id);
