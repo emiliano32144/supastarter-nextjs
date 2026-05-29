@@ -21,6 +21,8 @@ export default function LandingPage() {
   useEffect(() => {
     let lenis: import('lenis').default | null = null;
 
+    if (window.innerWidth < 768) return;
+
     import('lenis').then(({ default: Lenis }) => {
       lenis = new Lenis({ lerp: 0.08, duration: 1.2 });
 
