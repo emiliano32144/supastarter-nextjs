@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     }
 
     const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL || "https://codetix.es";
+      process.env.NEXT_PUBLIC_SITE_URL || "https://filo.com.es";
 
     // Mapa explícito de price IDs a planes (evita false positives con includes("pro"))
     const priceIdToPlan: Record<string, string> = {

@@ -3,7 +3,10 @@ import type { PropsWithChildren } from "react";
 import "./globals.css";
 import "cropperjs/dist/cropper.css";
 import { config } from "@repo/config";
+import { getBaseUrl } from "@repo/utils";
 import Script from "next/script";
+
+const siteUrl = getBaseUrl();
 
 export const viewport: Viewport = {
 	themeColor: "#D4AF37",
@@ -56,8 +59,9 @@ export const metadata: Metadata = {
 		description:
 			"Reservas online en 30 segundos. Fidelización con puntos XP. Sin comisiones. Desde 49,99€/mes.",
 	},
+	metadataBase: new URL(siteUrl),
 	alternates: {
-		canonical: "https://codetix.es",
+		canonical: siteUrl,
 	},
 	verification: {
 		google: "GOOGLE_SITE_VERIFICATION_ID",
@@ -71,7 +75,7 @@ export default function RootLayout({ children }: PropsWithChildren) {
 			<Script
 				id="plausible-analytics"
 				strategy="afterInteractive"
-				data-domain={process.env.NEXT_PUBLIC_PLAUSIBLE_URL || "codetix.es"}
+				data-domain={process.env.NEXT_PUBLIC_PLAUSIBLE_URL || "filo.com.es"}
 				src="https://plausible.io/js/script.js"
 			/>
 			<Script id="register-sw" strategy="afterInteractive">{

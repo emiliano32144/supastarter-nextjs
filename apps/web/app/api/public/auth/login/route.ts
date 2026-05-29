@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
+import {
+  getClientIpForRateLimit,
+  isRateLimited,
+} from "../../../../../lib/rate-limit-memory";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -8,6 +12,14 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIpForRateLimit(request);
+    if (isRateLimited(`login:${ip}`, 10, 60_000)) {
+      return NextResponse.json(
+        { error: "Demasiados intentos. Probá de nuevo en un minuto." },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { email, password, organizationId } = body;
 

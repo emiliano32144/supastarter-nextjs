@@ -252,7 +252,8 @@ export async function POST(
 			}
 		}
 
-		const confirmUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/public/booking/${booking.id}/confirm?token=${booking.confirmation_token}`;
+		const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://filo.com.es";
+		const confirmUrl = `${siteUrl}/api/public/booking/${booking.id}/confirm?token=${booking.confirmation_token}`;
 
 		try {
 			await sendBookingPendingConfirmationEmail({

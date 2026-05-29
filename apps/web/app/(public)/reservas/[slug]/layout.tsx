@@ -49,7 +49,7 @@ export async function generateMetadata({
           description,
         },
         alternates: {
-          canonical: `https://codetix.es/reservas/${slug}`,
+          canonical: `https://filo.com.es/reservas/${slug}`,
         },
         robots: "index, follow",
       };

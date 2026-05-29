@@ -50,7 +50,7 @@ type BookingNotificationEmailData = BookingEmailData & {
 };
 
 function getBaseUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL || 'https://codetix.es';
+  return process.env.NEXT_PUBLIC_SITE_URL || 'https://filo.com.es';
 }
 
 function clientPortalLinks(data: BookingEmailData) {
