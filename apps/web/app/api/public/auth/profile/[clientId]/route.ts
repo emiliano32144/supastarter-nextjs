@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  getClientIpForRateLimit,
+  isRateLimited,
+} from "../../../../../../lib/rate-limit-memory";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -10,6 +14,18 @@ export async function GET(
   { params }: { params: Promise<{ clientId: string }> }
 ) {
   try {
+    // Este endpoint devuelve PII (email, teléfono, gasto, historial). El
+    // rate-limiting mitiga la enumeración/scraping por clientId. NOTA: queda
+    // pendiente añadir verificación de identidad (token/sesión o email match)
+    // para cerrar del todo el IDOR.
+    const ip = getClientIpForRateLimit(request);
+    if (isRateLimited(`profile:${ip}`, 30, 60_000)) {
+      return NextResponse.json(
+        { error: "Demasiadas peticiones. Probá en un minuto." },
+        { status: 429 }
+      );
+    }
+
     const { clientId } = await params;
 
     // Obtener perfil
