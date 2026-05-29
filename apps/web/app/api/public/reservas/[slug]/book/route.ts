@@ -233,6 +233,14 @@ export async function POST(
 			.maybeSingle();
 
 		if (bookingError || !booking) {
+			// 23P01 = exclusion_violation: el constraint anti-solapamiento de la BD
+			// rechazó la reserva por una carrera (otro la tomó primero).
+			if ((bookingError as { code?: string } | null)?.code === "23P01") {
+				return NextResponse.json(
+					{ error: "Este horario ya no está disponible" },
+					{ status: 409 },
+				);
+			}
 			console.error("Error creating booking:", bookingError);
 			return NextResponse.json(
 				{ error: "Error al crear la reserva" },

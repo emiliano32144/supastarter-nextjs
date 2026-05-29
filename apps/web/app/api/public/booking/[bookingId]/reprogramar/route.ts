@@ -235,6 +235,14 @@ export async function POST(
       .maybeSingle();
 
     if (updateError) {
+      // 23P01 = exclusion_violation: el constraint anti-solapamiento rechazó
+      // el cambio por una carrera (otro tomó el hueco primero).
+      if ((updateError as { code?: string }).code === "23P01") {
+        return NextResponse.json(
+          { error: "El nuevo horario ya no está disponible" },
+          { status: 409 }
+        );
+      }
       console.error("Error reprogramando:", updateError);
       return NextResponse.json({ error: "Error al reprogramar" }, { status: 500 });
     }
