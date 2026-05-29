@@ -3,6 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 import { fromZonedTime } from "date-fns-tz";
 import { z } from "zod";
 import { sendCancellationEmail } from "../../../../../../lib/email/booking-emails";
+import {
+	getClientIpForRateLimit,
+	isRateLimited,
+} from "../../../../../../lib/rate-limit-memory";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -29,6 +33,14 @@ export async function POST(
 	{ params }: { params: Promise<{ bookingId: string }> },
 ) {
 	try {
+		const ip = getClientIpForRateLimit(request);
+		if (isRateLimited(`cancel:${ip}`, 20, 60_000)) {
+			return NextResponse.json(
+				{ error: "Demasiadas peticiones. Probá en un minuto." },
+				{ status: 429 },
+			);
+		}
+
 		const { bookingId } = await params;
 		const rawBody = await request.json();
 		const parsed = cancelBodySchema.safeParse(rawBody);
